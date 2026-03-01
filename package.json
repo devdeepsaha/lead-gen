@@ -1,0 +1,8 @@
+{
+  "name": "leadflow-csv",
+  "version": "1.0.0",
+  "description": "LeadFlow CSV Lead Manager with cross-device sync",
+  "dependencies": {
+    "@vercel/kv": "^2.0.0"
+  }
+}

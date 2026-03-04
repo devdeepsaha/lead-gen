@@ -36,6 +36,109 @@
         font-family: "Inter", sans-serif;
         min-height: 100dvh;
       }
+      /* ── Calendar Modal ── */
+      #cal-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: rgba(15, 15, 25, 0.45);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+      }
+      #cal-modal-backdrop.open {
+        opacity: 1;
+        pointer-events: all;
+      }
+      #cal-modal {
+        background: #fff;
+        border-radius: 20px;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+        width: min(680px, 95vw);
+        max-height: 90vh;
+        overflow-y: auto;
+        transform: translateY(16px) scale(0.97);
+        transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        padding: 0;
+      }
+      #cal-modal-backdrop.open #cal-modal {
+        transform: translateY(0) scale(1);
+      }
+      .cal-day {
+        aspect-ratio: 1;
+        border-radius: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        cursor: default;
+        transition:
+          background 0.15s,
+          transform 0.1s;
+        position: relative;
+        font-size: 13px;
+        font-weight: 600;
+        color: #64748b;
+        border: 1.5px solid transparent;
+      }
+      .cal-day.has-data {
+        cursor: pointer;
+        color: #1e293b;
+      }
+      .cal-day.has-data:hover {
+        background: #f8f4ff;
+        border-color: rgba(152, 85, 246, 0.25);
+        transform: scale(1.04);
+      }
+      .cal-day.is-today {
+        border-color: #9855f6 !important;
+        color: #9855f6 !important;
+        font-weight: 800;
+      }
+      .cal-day.is-today .cal-day-num {
+        color: #9855f6;
+      }
+      .cal-day.other-month {
+        opacity: 0.3;
+        cursor: default;
+      }
+      .cal-day.selected {
+        background: rgba(152, 85, 246, 0.1);
+        border-color: #9855f6;
+      }
+      .cal-dot-row {
+        display: flex;
+        gap: 2px;
+      }
+      .cal-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .cal-total-badge {
+        font-size: 11px;
+        font-weight: 800;
+        color: #9855f6;
+        line-height: 1;
+      }
+      .cal-day-num {
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1;
+      }
+      /* detail panel */
+      #cal-detail {
+        background: #f8f4ff;
+        border-radius: 14px;
+        padding: 16px;
+        transition: all 0.2s;
+      }
       .material-symbols-outlined {
         font-size: 20px;
         line-height: 1;
@@ -98,9 +201,6 @@
       .bar-fill {
         transition: width 0.6s ease;
       }
-      .radial-ring {
-        transition: stroke-dashoffset 0.8s ease;
-      }
       .action-seg {
         display: flex;
         border: 1px solid rgba(152, 85, 246, 0.15);
@@ -146,7 +246,6 @@
         background: rgba(239, 68, 68, 0.06);
         color: #ef4444;
       }
-      /* Sidebar collapse */
       .sidebar {
         transition: width 0.2s ease;
         overflow: hidden;
@@ -154,15 +253,9 @@
       .sidebar.collapsed {
         width: 56px !important;
       }
-      .sidebar.collapsed .sidebar-label {
-        display: none;
-      }
-      .sidebar.collapsed .sidebar-section-title {
-        display: none;
-      }
-      .sidebar.collapsed .sidebar-bottom {
-        display: none;
-      }
+      .sidebar.collapsed .sidebar-label,
+      .sidebar.collapsed .sidebar-section-title,
+      .sidebar.collapsed .sidebar-bottom,
       .sidebar.collapsed .sidebar-logo-text {
         display: none;
       }
@@ -271,7 +364,6 @@
           opacity: 0.4;
         }
       }
-      /* Upload drop zone */
       .drop-zone {
         border: 2px dashed rgba(152, 85, 246, 0.3);
         border-radius: 12px;
@@ -283,10 +375,6 @@
         border-color: #9855f6;
         background: rgba(152, 85, 246, 0.04);
       }
-      .tpl-tab {
-        transition: all 0.15s;
-      }
-      /* Loading overlay */
       #loading-overlay {
         position: fixed;
         inset: 0;
@@ -345,18 +433,149 @@
           display: none !important;
         }
       }
+      .lh-wrap {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .daily-count-ring {
+        animation: countRingIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+      }
+      @keyframes countRingIn {
+        from {
+          transform: scale(0.7);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
     </style>
   </head>
   <body class="bg-background-light text-slate-900 font-display">
-    <!-- Loading overlay shown while fetching leads from KV -->
     <div id="loading-overlay">
       <div class="spinner"></div>
       <p class="text-sm font-semibold text-slate-500" id="loading-msg">
         Loading leads...
       </p>
     </div>
-
     <div id="toast"></div>
+
+    <!-- ═══════════ OUTREACH CALENDAR MODAL ═══════════ -->
+    <div id="cal-modal-backdrop" onclick="handleCalBackdropClick(event)">
+      <div id="cal-modal">
+        <!-- Header -->
+        <div
+          class="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100"
+        >
+          <div>
+            <h2 class="text-lg font-black text-slate-900">Outreach Calendar</h2>
+            <p class="text-xs text-slate-400 mt-0.5">
+              Full history of all messages sent
+            </p>
+          </div>
+          <button
+            onclick="closeCalModal()"
+            class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all"
+          >
+            <span class="material-symbols-outlined" style="font-size: 20px"
+              >close</span
+            >
+          </button>
+        </div>
+
+        <div class="p-5">
+          <!-- Month navigator -->
+          <div class="flex items-center justify-between mb-4">
+            <button
+              onclick="calPrevMonth()"
+              class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-primary/10 text-primary transition-all"
+            >
+              <span class="material-symbols-outlined" style="font-size: 20px"
+                >chevron_left</span
+              >
+            </button>
+            <span
+              id="cal-month-label"
+              class="text-base font-black text-slate-800"
+            ></span>
+            <button
+              onclick="calNextMonth()"
+              id="cal-next-btn"
+              class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-primary/10 text-primary transition-all"
+            >
+              <span class="material-symbols-outlined" style="font-size: 20px"
+                >chevron_right</span
+              >
+            </button>
+          </div>
+
+          <!-- Summary strip for current month -->
+          <div
+            class="flex items-center gap-3 mb-4 p-3 rounded-xl bg-slate-50 text-xs font-semibold text-slate-500"
+            id="cal-month-summary"
+          >
+            <span>Loading…</span>
+          </div>
+
+          <!-- Day-of-week headers -->
+          <div class="grid grid-cols-7 mb-1">
+            <template id="cal-dow-headers">
+              <!-- filled by JS -->
+            </template>
+          </div>
+          <div class="grid grid-cols-7 gap-1.5" id="cal-grid"></div>
+
+          <!-- Detail panel (shown when a day is clicked) -->
+          <div id="cal-detail" class="mt-4 hidden">
+            <div class="flex items-center justify-between mb-3">
+              <h3
+                class="text-sm font-black text-slate-800"
+                id="cal-detail-date"
+              >
+                —
+              </h3>
+              <div class="flex items-center gap-2">
+                <span
+                  class="text-xs font-bold text-primary"
+                  id="cal-detail-total"
+                ></span>
+                <button
+                  id="cal-detail-delete"
+                  onclick="deleteCalDay(calSelectedKey)"
+                  style="display: none"
+                  class="flex items-center gap-1 text-[10px] font-bold text-red-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded-lg transition-all"
+                >
+                  <span
+                    class="material-symbols-outlined"
+                    style="font-size: 13px"
+                    >delete</span
+                  >Delete day
+                </button>
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-3" id="cal-detail-breakdown"></div>
+            <p class="text-[10px] text-slate-400 text-center mt-3">
+              Use − / + to correct counts · changes sync to cloud
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer totals -->
+        <div class="px-5 pb-5">
+          <div class="rounded-xl bg-slate-50 p-4">
+            <p
+              class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3"
+            >
+              All-Time Totals
+            </p>
+            <div class="flex gap-6" id="cal-alltime"></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- ═══════════ DESKTOP ═══════════ -->
     <div
@@ -459,12 +678,13 @@
                 id="nav-dashboard"
                 class="nav-active flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors"
                 title="Dashboard"
-                ><span
+              >
+                <span
                   class="material-symbols-outlined flex-shrink-0"
                   style="font-size: 18px"
                   >dashboard</span
-                ><span class="sidebar-label">Dashboard</span></a
-              >
+                ><span class="sidebar-label">Dashboard</span>
+              </a>
               <a
                 href="#"
                 onclick="
@@ -474,12 +694,13 @@
                 id="nav-leads"
                 class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-500 hover:bg-primary/5 hover:text-primary transition-colors"
                 title="Lead Directory"
-                ><span
+              >
+                <span
                   class="material-symbols-outlined flex-shrink-0"
                   style="font-size: 18px"
                   >view_list</span
-                ><span class="sidebar-label">Lead Directory</span></a
-              >
+                ><span class="sidebar-label">Lead Directory</span>
+              </a>
               <a
                 href="#"
                 onclick="
@@ -489,12 +710,13 @@
                 id="nav-outreach"
                 class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-500 hover:bg-primary/5 hover:text-primary transition-colors"
                 title="Outreach"
-                ><span
+              >
+                <span
                   class="material-symbols-outlined flex-shrink-0"
                   style="font-size: 18px"
                   >mail</span
-                ><span class="sidebar-label">Outreach</span></a
-              >
+                ><span class="sidebar-label">Outreach</span>
+              </a>
               <a
                 href="#"
                 onclick="
@@ -504,12 +726,13 @@
                 id="nav-settings"
                 class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-500 hover:bg-primary/5 hover:text-primary transition-colors"
                 title="Settings"
-                ><span
+              >
+                <span
                   class="material-symbols-outlined flex-shrink-0"
                   style="font-size: 18px"
                   >settings</span
-                ><span class="sidebar-label">Settings</span></a
-              >
+                ><span class="sidebar-label">Settings</span>
+              </a>
             </nav>
           </div>
           <div class="mt-auto space-y-3 sidebar-bottom">
@@ -582,6 +805,8 @@
                 >
               </p>
             </div>
+
+            <!-- Stat cards -->
             <div
               class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6"
             >
@@ -679,237 +904,327 @@
                 </div>
               </div>
             </div>
+
+            <!-- ── Daily Counter + Lighthouse Donut ─────────────── -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+              <!-- Lighthouse-style donut — SHRUNK to 160×160 -->
               <div
-                class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
+                class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col"
               >
-                <h3 class="text-base font-bold mb-4">Tagging Progress</h3>
-                <div class="flex flex-col items-center">
-                  <div class="relative flex items-center justify-center">
-                    <svg id="donut-svg" class="w-44 h-44" viewBox="0 0 160 160">
+                <h3 class="text-base font-bold mb-3">Tagging Progress</h3>
+                <div class="flex-1 flex flex-col items-center justify-center">
+                  <div
+                    class="lh-wrap"
+                    id="lh-donut-wrap"
+                    style="width: 160px; height: 160px"
+                  >
+                    <svg
+                      id="lh-svg"
+                      width="160"
+                      height="160"
+                      viewBox="0 0 160 160"
+                    >
+                      <!-- track -->
                       <circle
                         cx="80"
                         cy="80"
-                        r="58"
+                        r="60"
                         fill="none"
-                        stroke="#f1f5f9"
-                        stroke-width="22"
+                        stroke="#1e293b10"
+                        stroke-width="16"
                       />
                       <!-- segments drawn by JS -->
-                      <circle
-                        id="d-seg-job"
-                        cx="80"
-                        cy="80"
-                        r="58"
-                        fill="none"
-                        stroke="#43aa8b"
-                        stroke-width="20"
-                        stroke-dasharray="0 365"
-                        stroke-dashoffset="0"
-                        stroke-linecap="butt"
-                        style="
-                          transform: rotate(-90deg);
-                          transform-origin: 80px 80px;
-                          transition: stroke-dasharray 0.7s ease;
-                        "
-                      />
-                      <circle
-                        id="d-seg-build"
-                        cx="80"
-                        cy="80"
-                        r="58"
-                        fill="none"
-                        stroke="#9855f6"
-                        stroke-width="20"
-                        stroke-dasharray="0 365"
-                        stroke-dashoffset="0"
-                        stroke-linecap="butt"
-                        style="
-                          transform: rotate(-90deg);
-                          transform-origin: 80px 80px;
-                          transition: stroke-dasharray 0.7s ease;
-                        "
-                      />
-                      <circle
-                        id="d-seg-build-plus"
-                        cx="80"
-                        cy="80"
-                        r="58"
-                        fill="none"
-                        stroke="#577590"
-                        stroke-width="20"
-                        stroke-dasharray="0 365"
-                        stroke-dashoffset="0"
-                        stroke-linecap="butt"
-                        style="
-                          transform: rotate(-90deg);
-                          transform-origin: 80px 80px;
-                          transition: stroke-dasharray 0.7s ease;
-                        "
-                      />
-                      <circle
-                        id="d-seg-skip"
-                        cx="80"
-                        cy="80"
-                        r="58"
-                        fill="none"
-                        stroke="#e2e8f0"
-                        stroke-width="20"
-                        stroke-dasharray="0 365"
-                        stroke-dashoffset="0"
-                        stroke-linecap="butt"
-                        style="
-                          transform: rotate(-90deg);
-                          transform-origin: 80px 80px;
-                          transition: stroke-dasharray 0.7s ease;
-                        "
-                      />
-                      <circle
-                        id="d-seg-dismissed"
-                        cx="80"
-                        cy="80"
-                        r="58"
-                        fill="none"
-                        stroke="#f94144"
-                        stroke-width="20"
-                        stroke-dasharray="0 365"
-                        stroke-dashoffset="0"
-                        stroke-linecap="butt"
-                        style="
-                          transform: rotate(-90deg);
-                          transform-origin: 80px 80px;
-                          transition: stroke-dasharray 0.7s ease;
-                        "
-                      />
                     </svg>
-                    <div class="absolute flex flex-col items-center">
+                    <!-- center score -->
+                    <div
+                      style="
+                        position: absolute;
+                        inset: 0;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 2px;
+                        pointer-events: none;
+                      "
+                    >
                       <span
-                        class="text-3xl font-black text-primary"
-                        id="radial-pct"
+                        id="lh-pct"
+                        style="
+                          font-size: 22px;
+                          font-weight: 900;
+                          color: #1e293b;
+                          line-height: 1;
+                        "
                         >0%</span
-                      ><span class="text-[10px] text-slate-400 font-medium"
+                      >
+                      <span
+                        style="
+                          font-size: 10px;
+                          font-weight: 600;
+                          color: #94a3b8;
+                        "
                         >Tagged</span
                       >
                     </div>
                   </div>
-                  <div class="mt-4 w-full space-y-2 text-sm" id="donut-legend">
-                    <div class="flex justify-between items-center">
+
+                  <!-- legend -->
+                  <div
+                    class="mt-4 w-full grid grid-cols-2 gap-x-4 gap-y-2 text-xs"
+                  >
+                    <div class="flex items-center justify-between">
                       <span class="flex items-center gap-1.5 text-slate-600"
                         ><span
-                          class="w-3 h-3 rounded-sm inline-block flex-shrink-0"
-                          style="background: #43aa8b"
+                          class="w-2.5 h-2.5 rounded-sm inline-block flex-shrink-0"
+                          style="background: #10b981"
                         ></span
                         >Job</span
-                      ><span class="font-black text-slate-800" id="r-job"
+                      >
+                      <span class="font-black text-slate-800" id="lh-r-job"
                         >0</span
                       >
                     </div>
-                    <div class="flex justify-between items-center">
+                    <div class="flex items-center justify-between">
                       <span class="flex items-center gap-1.5 text-slate-600"
                         ><span
-                          class="w-3 h-3 rounded-sm inline-block flex-shrink-0"
+                          class="w-2.5 h-2.5 rounded-sm inline-block flex-shrink-0"
                           style="background: #9855f6"
                         ></span
                         >Build</span
-                      ><span class="font-black text-slate-800" id="r-build"
+                      >
+                      <span class="font-black text-slate-800" id="lh-r-build"
                         >0</span
                       >
                     </div>
-                    <div class="flex justify-between items-center">
+                    <div class="flex items-center justify-between">
                       <span class="flex items-center gap-1.5 text-slate-600"
                         ><span
-                          class="w-3 h-3 rounded-sm inline-block flex-shrink-0"
-                          style="background: #577590"
+                          class="w-2.5 h-2.5 rounded-sm inline-block flex-shrink-0"
+                          style="background: #3b82f6"
                         ></span
                         >Build+</span
-                      ><span class="font-black text-slate-800" id="r-build-plus"
+                      >
+                      <span
+                        class="font-black text-slate-800"
+                        id="lh-r-buildplus"
                         >0</span
                       >
                     </div>
-                    <div class="flex justify-between items-center">
+                    <div class="flex items-center justify-between">
+                      <!-- Skip swatch: light grey -->
                       <span class="flex items-center gap-1.5 text-slate-600"
                         ><span
-                          class="w-3 h-3 rounded-sm inline-block flex-shrink-0"
-                          style="background: #e2e8f0"
+                          class="w-2.5 h-2.5 rounded-sm inline-block flex-shrink-0"
+                          style="background: #d3d3d3"
                         ></span
                         >Skip</span
-                      ><span class="font-black text-slate-800" id="r-skip"
+                      >
+                      <span class="font-black text-slate-800" id="lh-r-skip"
                         >0</span
                       >
                     </div>
-                    <div class="flex justify-between items-center">
+                    <div class="flex items-center justify-between col-span-2">
                       <span class="flex items-center gap-1.5 text-slate-600"
                         ><span
-                          class="w-3 h-3 rounded-sm inline-block flex-shrink-0"
-                          style="background: #f94144"
+                          class="w-2.5 h-2.5 rounded-sm inline-block flex-shrink-0"
+                          style="background: #ef4444"
                         ></span
                         >Dismissed</span
-                      ><span class="font-black text-slate-800" id="r-dismissed"
+                      >
+                      <span
+                        class="font-black text-slate-800"
+                        id="lh-r-dismissed"
                         >0</span
                       >
                     </div>
                     <div
-                      class="flex justify-between items-center border-t border-slate-100 pt-2 mt-1"
+                      class="flex items-center justify-between col-span-2 border-t border-slate-100 pt-2 mt-1"
                     >
-                      <span class="text-slate-400 text-xs">Untagged</span
-                      ><span
-                        class="font-bold text-slate-500 text-xs"
-                        id="r-unset"
+                      <span class="text-slate-400">Untagged</span>
+                      <span class="font-bold text-slate-500" id="lh-r-unset"
                         >—</span
                       >
                     </div>
                   </div>
                 </div>
               </div>
-              <div
-                class="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
-              >
-                <div class="flex items-center justify-between mb-4">
-                  <h3 class="text-base font-bold">Leads by Category</h3>
-                  <span
-                    class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"
-                    >Top 8</span
-                  >
-                </div>
-                <div class="space-y-3" id="cat-chart"></div>
-                <div class="mt-4 pt-4 border-t border-slate-100">
-                  <p
-                    class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3"
-                  >
-                    Rating Distribution
-                  </p>
-                  <div
-                    class="flex items-end gap-1.5 h-14"
-                    id="rating-dist-chart"
-                  ></div>
-                </div>
-              </div>
-            </div>
-            <div
-              class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
-            >
-              <div
-                class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between"
-              >
-                <div class="flex items-center gap-2">
-                  <span
-                    class="material-symbols-outlined text-primary"
-                    style="font-size: 18px"
-                    >sync_alt</span
-                  >
-                  <h3 class="text-base font-bold">Top Leads by Reviews</h3>
-                </div>
-                <button
-                  onclick="showView('leads')"
-                  class="text-xs font-bold text-primary hover:underline"
+
+              <!-- Daily sent counter + category chart -->
+              <div class="lg:col-span-2 flex flex-col gap-5">
+                <!-- Daily outreach counter — click to open calendar -->
+                <div
+                  class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm cursor-pointer hover:border-primary/40 hover:shadow-md transition-all group"
+                  onclick="openCalModal()"
+                  title="Click to view full outreach history"
                 >
-                  View All →
-                </button>
+                  <div class="flex items-center justify-between mb-3">
+                    <div>
+                      <h3
+                        class="text-base font-bold group-hover:text-primary transition-colors"
+                      >
+                        Daily Outreach
+                      </h3>
+                      <p class="text-xs text-slate-400 mt-0.5">
+                        Click to view full history calendar
+                      </p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span
+                        class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"
+                        id="daily-date-label"
+                        >—</span
+                      >
+                      <span
+                        class="material-symbols-outlined text-primary/40 group-hover:text-primary transition-colors"
+                        style="font-size: 18px"
+                        >calendar_month</span
+                      >
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-5">
+                    <!-- Big counter circle — ring is purple, text is black -->
+                    <div
+                      class="daily-count-ring relative flex-shrink-0 flex items-center justify-center"
+                      style="width: 88px; height: 88px"
+                    >
+                      <svg width="88" height="88" viewBox="0 0 88 88">
+                        <circle
+                          cx="44"
+                          cy="44"
+                          r="36"
+                          fill="none"
+                          stroke="#f1f5f9"
+                          stroke-width="7"
+                        />
+                        <circle
+                          id="daily-ring-fill"
+                          cx="44"
+                          cy="44"
+                          r="36"
+                          fill="none"
+                          stroke="#9855f6"
+                          stroke-width="7"
+                          stroke-linecap="round"
+                          stroke-dasharray="226"
+                          stroke-dashoffset="226"
+                          style="
+                            transform: rotate(-90deg);
+                            transform-origin: 44px 44px;
+                            transition: stroke-dashoffset 0.6s ease;
+                          "
+                        />
+                      </svg>
+                      <div
+                        style="
+                          position: absolute;
+                          display: flex;
+                          flex-direction: column;
+                          align-items: center;
+                        "
+                      >
+                        <span
+                          style="
+                            font-size: 24px;
+                            font-weight: 900;
+                            color: #000;
+                            line-height: 1;
+                          "
+                          id="daily-count"
+                          >0</span
+                        >
+                        <span
+                          style="font-size: 9px; font-weight: 600; color: #000"
+                          >sent</span
+                        >
+                      </div>
+                    </div>
+                    <!-- breakdown -->
+                    <div class="flex-1 space-y-2">
+                      <div class="flex items-center justify-between text-xs">
+                        <span class="flex items-center gap-1.5 text-slate-600"
+                          ><span
+                            class="w-2 h-2 rounded-full inline-block"
+                            style="background: #10b981"
+                          ></span
+                          >Job</span
+                        >
+                        <span class="font-bold text-slate-700" id="daily-job"
+                          >0</span
+                        >
+                      </div>
+                      <div class="flex items-center justify-between text-xs">
+                        <span class="flex items-center gap-1.5 text-slate-600"
+                          ><span
+                            class="w-2 h-2 rounded-full inline-block"
+                            style="background: #9855f6"
+                          ></span
+                          >Build</span
+                        >
+                        <span class="font-bold text-slate-700" id="daily-build"
+                          >0</span
+                        >
+                      </div>
+                      <div class="flex items-center justify-between text-xs">
+                        <span class="flex items-center gap-1.5 text-slate-600"
+                          ><span
+                            class="w-2 h-2 rounded-full inline-block"
+                            style="background: #3b82f6"
+                          ></span
+                          >Build+</span
+                        >
+                        <span
+                          class="font-bold text-slate-700"
+                          id="daily-buildplus"
+                          >0</span
+                        >
+                      </div>
+                      <div
+                        class="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden"
+                      >
+                        <div
+                          id="daily-progress-bar"
+                          class="h-full bg-primary rounded-full transition-all"
+                          style="width: 0%"
+                        ></div>
+                      </div>
+                      <p class="text-[10px] text-slate-400">
+                        Goal:
+                        <span
+                          id="daily-goal-label"
+                          class="font-semibold text-slate-600"
+                          >10 / day</span
+                        >
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Category chart -->
+                <div
+                  class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex-1"
+                >
+                  <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-base font-bold">Leads by Category</h3>
+                    <span
+                      class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"
+                      >Top 8</span
+                    >
+                  </div>
+                  <div class="space-y-3" id="cat-chart"></div>
+                  <div class="mt-4 pt-4 border-t border-slate-100">
+                    <p
+                      class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3"
+                    >
+                      Rating Distribution
+                    </p>
+                    <div
+                      class="flex items-end gap-1.5 h-14"
+                      id="rating-dist-chart"
+                    ></div>
+                  </div>
+                </div>
               </div>
-              <div
-                class="divide-y divide-slate-100"
-                id="recent-leads-list"
-              ></div>
             </div>
           </div>
 
@@ -1209,8 +1524,6 @@
                 lead directory.
               </p>
             </div>
-
-            <!-- Outreach sent log -->
             <div
               class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden max-w-3xl"
             >
@@ -1265,7 +1578,6 @@
               </p>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-3xl">
-              <!-- Upload new CSV -->
               <div
                 class="md:col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
               >
@@ -1311,14 +1623,42 @@
                     onchange="handleCsvFile(this.files[0])"
                   />
                 </div>
-                <!-- Upload progress -->
                 <div
                   id="upload-status"
                   class="hidden mt-3 p-3 rounded-lg bg-slate-50 text-sm"
                 ></div>
               </div>
-
-              <!-- Sync status -->
+              <div
+                class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
+              >
+                <h3 class="font-bold text-sm mb-1">Daily Outreach Goal</h3>
+                <p class="text-xs text-slate-400 mb-3">
+                  Set your daily target for outreach messages sent.
+                </p>
+                <div class="flex items-center gap-3">
+                  <input
+                    type="number"
+                    id="daily-goal-input"
+                    min="1"
+                    max="200"
+                    value="10"
+                    class="w-20 h-9 rounded-lg border border-primary/20 px-3 text-sm font-bold text-slate-700 outline-none focus:border-primary/50"
+                  />
+                  <button
+                    onclick="saveDailyGoal()"
+                    class="px-4 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-all"
+                  >
+                    Save Goal
+                  </button>
+                </div>
+                <p class="text-[10px] text-slate-400 mt-2">
+                  Today's count:
+                  <span class="font-bold text-primary" id="settings-daily-count"
+                    >0</span
+                  >
+                  sent
+                </p>
+              </div>
               <div
                 class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
               >
@@ -1345,8 +1685,6 @@
                   >Force sync
                 </button>
               </div>
-
-              <!-- Backup -->
               <div
                 class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
               >
@@ -1365,8 +1703,6 @@
                   >Download JSON
                 </button>
               </div>
-
-              <!-- Current dataset info -->
               <div
                 class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
               >
@@ -1394,8 +1730,6 @@
                   </div>
                 </div>
               </div>
-
-              <!-- Reset -->
               <div
                 class="bg-white rounded-xl border border-red-100 p-5 shadow-sm"
               >
@@ -1481,8 +1815,8 @@
               Total
             </p>
             <div class="flex items-end justify-between mt-1">
-              <span class="text-2xl font-black" id="m-ds-total">—</span
-              ><span
+              <span class="text-2xl font-black" id="m-ds-total">—</span>
+              <span
                 class="text-emerald-500 text-[10px] font-bold bg-emerald-50 px-1.5 py-0.5 rounded-full"
                 >ALL</span
               >
@@ -1501,7 +1835,8 @@
                 class="text-2xl font-black text-emerald-600"
                 id="m-ds-tagged"
                 >0</span
-              ><span
+              >
+              <span
                 class="text-emerald-500 text-[10px] font-bold bg-emerald-50 px-1.5 py-0.5 rounded-full"
                 id="m-ds-pct"
                 >0%</span
@@ -1519,7 +1854,8 @@
             <div class="flex items-end justify-between mt-1">
               <span class="text-2xl font-black text-blue-600" id="m-ds-job"
                 >0</span
-              ><span
+              >
+              <span
                 class="text-blue-400 text-[10px] font-bold bg-blue-50 px-1.5 py-0.5 rounded-full"
                 >JOB</span
               >
@@ -1536,78 +1872,111 @@
             <div class="flex items-end justify-between mt-1">
               <span class="text-2xl font-black text-primary" id="m-ds-free"
                 >0</span
-              ><span
+              >
+              <span
                 class="text-primary text-[10px] font-bold bg-primary/10 px-1.5 py-0.5 rounded-full"
                 >BUILD</span
               >
             </div>
           </div>
         </div>
-        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <h3 class="text-sm font-bold mb-3">Tagging Progress</h3>
-          <div class="flex items-center gap-5">
-            <div class="relative flex-shrink-0">
-              <svg class="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
+
+        <!-- Mobile daily counter — click to open calendar -->
+        <div
+          class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm cursor-pointer hover:border-primary/40 transition-all"
+          onclick="openCalModal()"
+        >
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-bold">Today's Outreach</h3>
+            <div class="flex items-center gap-1.5">
+              <span
+                class="text-[10px] font-bold text-slate-400"
+                id="m-daily-date-label"
+                >—</span
+              >
+              <span
+                class="material-symbols-outlined text-primary/50"
+                style="font-size: 15px"
+                >calendar_month</span
+              >
+            </div>
+          </div>
+          <div class="flex items-center gap-4">
+            <div
+              class="relative flex-shrink-0"
+              style="width: 72px; height: 72px"
+            >
+              <svg width="72" height="72" viewBox="0 0 72 72">
                 <circle
-                  cx="50"
-                  cy="50"
-                  r="40"
+                  cx="36"
+                  cy="36"
+                  r="28"
                   fill="none"
                   stroke="#f1f5f9"
-                  stroke-width="8"
+                  stroke-width="6"
                 />
+                <!-- purple ring, black text -->
                 <circle
-                  id="m-radial-ring"
-                  cx="50"
-                  cy="50"
-                  r="40"
+                  id="m-daily-ring-fill"
+                  cx="36"
+                  cy="36"
+                  r="28"
                   fill="none"
                   stroke="#9855f6"
-                  stroke-width="8"
-                  stroke-dasharray="251"
-                  stroke-dashoffset="251"
+                  stroke-width="6"
                   stroke-linecap="round"
-                  class="radial-ring"
+                  stroke-dasharray="176"
+                  stroke-dashoffset="176"
+                  style="
+                    transform: rotate(-90deg);
+                    transform-origin: 36px 36px;
+                    transition: stroke-dashoffset 0.6s ease;
+                  "
                 />
               </svg>
               <div
-                class="absolute inset-0 flex flex-col items-center justify-center"
+                style="
+                  position: absolute;
+                  inset: 0;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: center;
+                "
               >
-                <span class="text-lg font-black text-primary" id="m-radial-pct"
-                  >0%</span
-                ><span class="text-[8px] text-slate-400">Tagged</span>
+                <span
+                  style="
+                    font-size: 20px;
+                    font-weight: 900;
+                    color: #000;
+                    line-height: 1;
+                  "
+                  id="m-daily-count"
+                  >0</span
+                >
+                <span style="font-size: 8px; font-weight: 600; color: #000"
+                  >sent</span
+                >
               </div>
             </div>
-            <div class="flex-1 space-y-2 text-xs">
-              <div class="flex justify-between items-center">
-                <span class="flex items-center gap-1.5 text-slate-500"
-                  ><span
-                    class="w-2 h-2 rounded-full bg-emerald-400 inline-block"
-                  ></span
-                  >Job</span
-                ><span class="font-bold" id="m-r-job">0</span>
+            <div class="flex-1 space-y-1.5 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-500">Job</span
+                ><span class="font-bold" id="m-daily-job">0</span>
               </div>
-              <div class="flex justify-between items-center">
-                <span class="flex items-center gap-1.5 text-slate-500"
-                  ><span
-                    class="w-2 h-2 rounded-full bg-primary inline-block"
-                  ></span
-                  >Build</span
-                ><span class="font-bold" id="m-r-free">0</span>
+              <div class="flex justify-between">
+                <span class="text-slate-500">Build</span
+                ><span class="font-bold" id="m-daily-build">0</span>
               </div>
-              <div class="flex justify-between items-center">
-                <span class="flex items-center gap-1.5 text-slate-500"
-                  ><span
-                    class="w-2 h-2 rounded-full bg-slate-200 inline-block"
-                  ></span
-                  >Untagged</span
-                ><span class="font-bold" id="m-r-unset">—</span>
+              <div class="flex justify-between">
+                <span class="text-slate-500">Build+</span
+                ><span class="font-bold" id="m-daily-buildplus">0</span>
               </div>
               <div
-                class="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden"
+                class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-1"
               >
                 <div
-                  id="m-prog-bar"
+                  id="m-daily-progress-bar"
                   class="h-full bg-primary rounded-full transition-all"
                   style="width: 0%"
                 ></div>
@@ -1615,25 +1984,183 @@
             </div>
           </div>
         </div>
+
+        <!-- Mobile lighthouse donut -->
+        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <h3 class="text-sm font-bold mb-3">Tagging Progress</h3>
+          <div class="flex items-center gap-4">
+            <div
+              class="relative flex-shrink-0"
+              style="width: 110px; height: 110px"
+            >
+              <svg width="110" height="110" viewBox="0 0 110 110">
+                <circle
+                  cx="55"
+                  cy="55"
+                  r="40"
+                  fill="none"
+                  stroke="#f1f5f9"
+                  stroke-width="8"
+                />
+                <circle
+                  id="m-lh-seg-job"
+                  cx="55"
+                  cy="55"
+                  r="40"
+                  fill="none"
+                  stroke="#10b981"
+                  stroke-width="8"
+                  stroke-dasharray="0 252"
+                  stroke-dashoffset="0"
+                  stroke-linecap="butt"
+                  style="
+                    transform: rotate(-90deg);
+                    transform-origin: 55px 55px;
+                    transition: all 0.8s ease;
+                  "
+                />
+                <circle
+                  id="m-lh-seg-build"
+                  cx="55"
+                  cy="55"
+                  r="40"
+                  fill="none"
+                  stroke="#9855f6"
+                  stroke-width="8"
+                  stroke-dasharray="0 252"
+                  stroke-dashoffset="0"
+                  stroke-linecap="butt"
+                  style="
+                    transform: rotate(-90deg);
+                    transform-origin: 55px 55px;
+                    transition: all 0.8s ease;
+                  "
+                />
+                <circle
+                  id="m-lh-seg-buildplus"
+                  cx="55"
+                  cy="55"
+                  r="40"
+                  fill="none"
+                  stroke="#3b82f6"
+                  stroke-width="8"
+                  stroke-dasharray="0 252"
+                  stroke-dashoffset="0"
+                  stroke-linecap="butt"
+                  style="
+                    transform: rotate(-90deg);
+                    transform-origin: 55px 55px;
+                    transition: all 0.8s ease;
+                  "
+                />
+                <!-- Skip: light grey #D3D3D3 -->
+                <circle
+                  id="m-lh-seg-skip"
+                  cx="55"
+                  cy="55"
+                  r="40"
+                  fill="none"
+                  stroke="#D3D3D3"
+                  stroke-width="8"
+                  stroke-dasharray="0 252"
+                  stroke-dashoffset="0"
+                  stroke-linecap="butt"
+                  style="
+                    transform: rotate(-90deg);
+                    transform-origin: 55px 55px;
+                    transition: all 0.8s ease;
+                  "
+                />
+                <circle
+                  id="m-lh-seg-dismissed"
+                  cx="55"
+                  cy="55"
+                  r="40"
+                  fill="none"
+                  stroke="#ef4444"
+                  stroke-width="8"
+                  stroke-dasharray="0 252"
+                  stroke-dashoffset="0"
+                  stroke-linecap="butt"
+                  style="
+                    transform: rotate(-90deg);
+                    transform-origin: 55px 55px;
+                    transition: all 0.8s ease;
+                  "
+                />
+              </svg>
+              <div
+                style="
+                  position: absolute;
+                  inset: 0;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: center;
+                "
+              >
+                <span
+                  class="text-lg font-black text-slate-800 leading-none"
+                  id="m-lh-pct"
+                  >0%</span
+                >
+                <span class="text-[8px] text-slate-400">Tagged</span>
+              </div>
+            </div>
+            <div class="flex-1 space-y-2 text-xs">
+              <div class="flex justify-between items-center">
+                <span class="flex items-center gap-1.5 text-slate-500"
+                  ><span
+                    class="w-2 h-2 rounded-full inline-block"
+                    style="background: #10b981"
+                  ></span
+                  >Job</span
+                ><span class="font-bold" id="m-lh-r-job">0</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="flex items-center gap-1.5 text-slate-500"
+                  ><span
+                    class="w-2 h-2 rounded-full inline-block"
+                    style="background: #9855f6"
+                  ></span
+                  >Build</span
+                ><span class="font-bold" id="m-lh-r-build">0</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="flex items-center gap-1.5 text-slate-500"
+                  ><span
+                    class="w-2 h-2 rounded-full inline-block"
+                    style="background: #3b82f6"
+                  ></span
+                  >Build+</span
+                ><span class="font-bold" id="m-lh-r-buildplus">0</span>
+              </div>
+              <!-- Skip: light grey -->
+              <div class="flex justify-between items-center">
+                <span class="flex items-center gap-1.5 text-slate-500"
+                  ><span
+                    class="w-2 h-2 rounded-full inline-block"
+                    style="background: #d3d3d3"
+                  ></span
+                  >Skip</span
+                ><span class="font-bold" id="m-lh-r-skip">0</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="flex items-center gap-1.5 text-slate-500"
+                  ><span
+                    class="w-2 h-2 rounded-full inline-block"
+                    style="background: #ef4444"
+                  ></span
+                  >Dismissed</span
+                ><span class="font-bold" id="m-lh-r-dismissed">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
           <h3 class="text-sm font-bold mb-3">Top Categories</h3>
           <div class="space-y-2.5" id="m-cat-chart"></div>
-        </div>
-        <div
-          class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
-        >
-          <div
-            class="px-4 py-3 border-b border-slate-100 flex items-center justify-between"
-          >
-            <h3 class="text-sm font-bold">Top Leads by Reviews</h3>
-            <button
-              onclick="showMobileView('leads')"
-              class="text-[11px] font-bold text-primary"
-            >
-              View All →
-            </button>
-          </div>
-          <div id="m-recent-list" class="divide-y divide-slate-100"></div>
         </div>
       </div>
 
@@ -1805,7 +2332,6 @@
         style="display: none"
       >
         <h2 class="text-base font-black">Outreach History</h2>
-        <!-- Sent log -->
         <div
           class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
         >
@@ -1851,7 +2377,25 @@
         style="display: none"
       >
         <h2 class="text-base font-black">Settings</h2>
-        <!-- Upload CSV mobile -->
+        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <h3 class="font-bold text-sm mb-1">Daily Outreach Goal</h3>
+          <div class="flex items-center gap-3 mt-2">
+            <input
+              type="number"
+              id="m-daily-goal-input"
+              min="1"
+              max="200"
+              value="10"
+              class="w-20 h-9 rounded-lg border border-primary/20 px-3 text-sm font-bold text-slate-700 outline-none focus:border-primary/50"
+            />
+            <button
+              onclick="saveDailyGoal()"
+              class="px-4 py-2 rounded-lg bg-primary text-white text-sm font-bold"
+            >
+              Save
+            </button>
+          </div>
+        </div>
         <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
           <h3 class="font-bold text-sm mb-1">Add New Leads</h3>
           <p class="text-xs text-slate-400 mb-3">
@@ -1938,12 +2482,13 @@
             "
             id="m-nav-dashboard"
             class="flex flex-col items-center gap-0.5 text-primary"
-            ><span
+          >
+            <span
               class="material-symbols-outlined fill-1"
               style="font-size: 22px"
               >dashboard</span
-            ><span class="text-[10px] font-semibold">Dashboard</span></a
-          >
+            ><span class="text-[10px] font-semibold">Dashboard</span>
+          </a>
           <a
             href="#"
             onclick="
@@ -1952,10 +2497,11 @@
             "
             id="m-nav-leads"
             class="flex flex-col items-center gap-0.5 text-slate-400"
-            ><span class="material-symbols-outlined" style="font-size: 22px"
-              >view_list</span
-            ><span class="text-[10px] font-semibold">Leads</span></a
           >
+            <span class="material-symbols-outlined" style="font-size: 22px"
+              >view_list</span
+            ><span class="text-[10px] font-semibold">Leads</span>
+          </a>
           <a
             href="#"
             onclick="
@@ -1964,10 +2510,11 @@
             "
             id="m-nav-outreach"
             class="flex flex-col items-center gap-0.5 text-slate-400"
-            ><span class="material-symbols-outlined" style="font-size: 22px"
-              >mail</span
-            ><span class="text-[10px] font-semibold">Outreach</span></a
           >
+            <span class="material-symbols-outlined" style="font-size: 22px"
+              >mail</span
+            ><span class="text-[10px] font-semibold">Outreach</span>
+          </a>
           <a
             href="#"
             onclick="
@@ -1976,10 +2523,11 @@
             "
             id="m-nav-settings"
             class="flex flex-col items-center gap-0.5 text-slate-400"
-            ><span class="material-symbols-outlined" style="font-size: 22px"
-              >settings</span
-            ><span class="text-[10px] font-semibold">Settings</span></a
           >
+            <span class="material-symbols-outlined" style="font-size: 22px"
+              >settings</span
+            ><span class="text-[10px] font-semibold">Settings</span>
+          </a>
         </div>
       </nav>
     </div>
@@ -1990,11 +2538,19 @@
       // ═══════════════════════════════════════════════════════
       const LEADS_API = "/api/leads";
       const STATUS_API = "/api/statuses";
-      let leads = []; // live array, populated on init
-      let dataSource = "cloud"; // "cloud" | "fallback"
+      let leads = [];
+      let dataSource = "cloud";
       let catCounts = {};
       let categories = [];
       let syncTimer = null;
+
+      let dailyData = {
+        date: "",
+        counts: { job: 0, build_no_demo: 0, build_demo: 0 },
+        goal: 10,
+      };
+      // history: { "YYYY-MM-DD": { job, build_no_demo, build_demo } }
+      let dailyHistory = {};
 
       let state = {
         status: "all",
@@ -2010,6 +2566,477 @@
         mPage: 1,
         mPerPage: 10,
       };
+
+      // ── Date helpers (needed early by init and daily counter) ─────────────
+      function todayStr() {
+        const d = new Date();
+        return (
+          d.getFullYear() +
+          "-" +
+          String(d.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(d.getDate()).padStart(2, "0")
+        );
+      }
+      function fmtDate(d) {
+        return (
+          d.getFullYear() +
+          "-" +
+          String(d.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(d.getDate()).padStart(2, "0")
+        );
+      }
+
+      // ═══════════════════════════════════════════════════════
+      //  CALENDAR MODAL
+      // ═══════════════════════════════════════════════════════
+      let calYear, calMonth; // currently viewed month
+
+      function openCalModal() {
+        const now = new Date();
+        calYear = now.getFullYear();
+        calMonth = now.getMonth();
+        renderCalendar();
+        renderCalAllTime();
+        document.getElementById("cal-modal-backdrop").classList.add("open");
+        document.body.style.overflow = "hidden";
+      }
+
+      function showCalDetail(key) {
+        const now = new Date();
+        calYear = now.getFullYear();
+        calMonth = now.getMonth();
+        renderCalendar();
+        renderCalAllTime();
+        document.getElementById("cal-modal-backdrop").classList.add("open");
+        document.body.style.overflow = "hidden";
+      }
+      function closeCalModal() {
+        document.getElementById("cal-modal-backdrop").classList.remove("open");
+        document.body.style.overflow = "";
+      }
+      function handleCalBackdropClick(e) {
+        if (e.target === document.getElementById("cal-modal-backdrop"))
+          closeCalModal();
+      }
+
+      function calPrevMonth() {
+        calMonth--;
+        if (calMonth < 0) {
+          calMonth = 11;
+          calYear--;
+        }
+        renderCalendar();
+      }
+      function calNextMonth() {
+        const now = new Date();
+        if (
+          calYear > now.getFullYear() ||
+          (calYear === now.getFullYear() && calMonth >= now.getMonth())
+        )
+          return;
+        calMonth++;
+        if (calMonth > 11) {
+          calMonth = 0;
+          calYear++;
+        }
+        renderCalendar();
+      }
+
+      function renderCalendar() {
+        const now = new Date();
+        const todayStr = fmtDate(now);
+
+        // Disable next button if already on current month
+        const nextBtn = document.getElementById("cal-next-btn");
+        const isCurrentMonth =
+          calYear === now.getFullYear() && calMonth === now.getMonth();
+        if (nextBtn) nextBtn.style.opacity = isCurrentMonth ? "0.3" : "1";
+
+        // Month label
+        const label = new Date(calYear, calMonth, 1).toLocaleDateString(
+          "en-US",
+          { month: "long", year: "numeric" },
+        );
+        document.getElementById("cal-month-label").textContent = label;
+
+        // Day-of-week headers
+        const headerRow =
+          document.getElementById("cal-grid").previousElementSibling;
+        headerRow.innerHTML = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+          .map(
+            (d) =>
+              `<div class="text-center text-[10px] font-bold text-slate-400 uppercase pb-1">${d}</div>`,
+          )
+          .join("");
+
+        // Build grid
+        const firstDay = new Date(calYear, calMonth, 1).getDay(); // 0=Sun
+        const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+        const daysInPrev = new Date(calYear, calMonth, 0).getDate();
+
+        // Month summary
+        let mJob = 0,
+          mBuild = 0,
+          mBuildPlus = 0;
+        for (let d = 1; d <= daysInMonth; d++) {
+          const key = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+          const entry = dailyHistory[key];
+          if (entry) {
+            mJob += entry.job || 0;
+            mBuild += entry.build_no_demo || 0;
+            mBuildPlus += entry.build_demo || 0;
+          }
+        }
+        const mTotal = mJob + mBuild + mBuildPlus;
+        document.getElementById("cal-month-summary").innerHTML =
+          mTotal === 0
+            ? `<span class="text-slate-400">No outreach logged this month</span>`
+            : `<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full" style="background:#10b981"></span><b class="text-slate-700">${mJob}</b> Job</span>
+             <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full" style="background:#9855f6"></span><b class="text-slate-700">${mBuild}</b> Build</span>
+             <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full" style="background:#3b82f6"></span><b class="text-slate-700">${mBuildPlus}</b> Build+</span>
+             <span class="ml-auto font-black text-slate-700">${mTotal} total</span>`;
+
+        // Build cells
+        let cells = [];
+        // Prev month fill
+        for (let i = firstDay - 1; i >= 0; i--) {
+          cells.push({ day: daysInPrev - i, thisMonth: false });
+        }
+        // This month
+        for (let d = 1; d <= daysInMonth; d++) {
+          cells.push({ day: d, thisMonth: true });
+        }
+        // Next month fill
+        const remaining = 42 - cells.length;
+        for (let d = 1; d <= remaining; d++) {
+          cells.push({ day: d, thisMonth: false });
+        }
+
+        const grid = document.getElementById("cal-grid");
+        grid.innerHTML = cells
+          .map((cell) => {
+            if (!cell.thisMonth) {
+              return `<div class="cal-day other-month"><span class="cal-day-num">${cell.day}</span></div>`;
+            }
+            const key = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(cell.day).padStart(2, "0")}`;
+            const entry = dailyHistory[key];
+            const total = entry
+              ? (entry.job || 0) +
+                (entry.build_no_demo || 0) +
+                (entry.build_demo || 0)
+              : 0;
+            const isToday = key === todayStr;
+            let dots = "";
+            if (entry) {
+              if (entry.job)
+                dots += `<span class="cal-dot" style="background:#10b981"></span>`;
+              if (entry.build_no_demo)
+                dots += `<span class="cal-dot" style="background:#9855f6"></span>`;
+              if (entry.build_demo)
+                dots += `<span class="cal-dot" style="background:#3b82f6"></span>`;
+            }
+            return `<div class="cal-day ${total > 0 ? "has-data" : ""} ${isToday ? "is-today" : ""}" 
+                    onclick="${total > 0 ? `showCalDetail('${key}')` : ""}"
+                    title="${total > 0 ? key + ": " + total + " sent" : ""}">
+            <span class="cal-day-num">${cell.day}</span>
+            ${total > 0 ? `<span class="cal-total-badge">${total}</span><div class="cal-dot-row">${dots}</div>` : ""}
+          </div>`;
+          })
+          .join("");
+      }
+
+      function openCalModal() {
+        // Deselect previous
+        document
+          .querySelectorAll(".cal-day.selected")
+          .forEach((el) => el.classList.remove("selected"));
+        // Select clicked
+        const cells = document.querySelectorAll(".cal-day");
+        cells.forEach((el) => {
+          if (el.getAttribute("onclick")?.includes(key))
+            el.classList.add("selected");
+        });
+
+        const entry = dailyHistory[key] || {
+          job: 0,
+          build_no_demo: 0,
+          build_demo: 0,
+        };
+        const total =
+          (entry.job || 0) +
+          (entry.build_no_demo || 0) +
+          (entry.build_demo || 0);
+        const [y, m, d] = key.split("-");
+        const nice = new Date(+y, +m - 1, +d).toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        });
+        document.getElementById("cal-detail-date").textContent = nice;
+        document.getElementById("cal-detail-total").textContent =
+          total + " sent";
+        document.getElementById("cal-detail-breakdown").innerHTML = [
+          {
+            label: "Job",
+            count: entry.job || 0,
+            color: "#10b981",
+            bg: "rgba(16,185,129,0.08)",
+          },
+          {
+            label: "Build",
+            count: entry.build_no_demo || 0,
+            color: "#9855f6",
+            bg: "rgba(152,85,246,0.08)",
+          },
+          {
+            label: "Build+",
+            count: entry.build_demo || 0,
+            color: "#3b82f6",
+            bg: "rgba(59,130,246,0.08)",
+          },
+        ]
+          .map(
+            (s) => `
+          <div class="flex flex-col items-center gap-1 rounded-xl p-3" style="background:${s.bg}">
+            <span style="font-size:28px;font-weight:900;color:${s.color};line-height:1">${s.count}</span>
+            <span style="font-size:11px;font-weight:700;color:${s.color}">${s.label}</span>
+          </div>`,
+          )
+          .join("");
+        document.getElementById("cal-detail").classList.remove("hidden");
+      }
+
+      function renderCalAllTime() {
+        let tJob = 0,
+          tBuild = 0,
+          tBuildPlus = 0,
+          activeDays = 0;
+        for (const entry of Object.values(dailyHistory)) {
+          const t =
+            (entry.job || 0) +
+            (entry.build_no_demo || 0) +
+            (entry.build_demo || 0);
+          if (t > 0) {
+            tJob += entry.job || 0;
+            tBuild += entry.build_no_demo || 0;
+            tBuildPlus += entry.build_demo || 0;
+            activeDays++;
+          }
+        }
+        const grand = tJob + tBuild + tBuildPlus;
+        document.getElementById("cal-alltime").innerHTML = [
+          { label: "Total", count: grand, color: "#1e293b" },
+          { label: "Job", count: tJob, color: "#10b981" },
+          { label: "Build", count: tBuild, color: "#9855f6" },
+          { label: "Build+", count: tBuildPlus, color: "#3b82f6" },
+          { label: "Active days", count: activeDays, color: "#94a3b8" },
+        ]
+          .map(
+            (s) => `
+          <div class="flex flex-col gap-0.5">
+            <span style="font-size:20px;font-weight:900;color:${s.color};line-height:1">${s.count}</span>
+            <span style="font-size:10px;font-weight:600;color:#94a3b8">${s.label}</span>
+          </div>`,
+          )
+          .join("");
+
+        let state = {
+          status: "all",
+          cat: "all",
+          sort: "default",
+          search: "",
+          page: 1,
+          perPage: 15,
+          mStatus: "all",
+          mCat: "all",
+          mSort: "default",
+          mSearch: "",
+          mPage: 1,
+          mPerPage: 10,
+        };
+
+        // ═══════════════════════════════════════════════════════
+        //  DAILY COUNTER
+        // ═══════════════════════════════════════════════════════
+        function todayStr() {
+          const d = new Date();
+          return (
+            d.getFullYear() +
+            "-" +
+            String(d.getMonth() + 1).padStart(2, "0") +
+            "-" +
+            String(d.getDate()).padStart(2, "0")
+          );
+        }
+
+        async function loadDailyData() {
+          try {
+            const res = await fetch(STATUS_API);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.daily) {
+                const today = todayStr();
+                if (data.daily.date === today) {
+                  dailyData = { ...dailyData, ...data.daily };
+                } else {
+                  dailyData.goal = data.daily.goal || dailyData.goal;
+                  dailyData.date = today;
+                  dailyData.counts = {
+                    job: 0,
+                    build_no_demo: 0,
+                    build_demo: 0,
+                  };
+                }
+              } else {
+                dailyData.date = todayStr();
+              }
+              if (data.daily && data.daily.goal)
+                dailyData.goal = data.daily.goal;
+            }
+          } catch (e) {}
+          try {
+            const raw = localStorage.getItem("lf_daily_v1");
+            if (raw) {
+              const stored = JSON.parse(raw);
+              if (stored.date === todayStr()) {
+                if (!dailyData.date || dailyData.date !== todayStr()) {
+                  dailyData = stored;
+                } else {
+                  dailyData.counts.job = Math.max(
+                    dailyData.counts.job,
+                    stored.counts.job || 0,
+                  );
+                  dailyData.counts.build_no_demo = Math.max(
+                    dailyData.counts.build_no_demo,
+                    stored.counts.build_no_demo || 0,
+                  );
+                  dailyData.counts.build_demo = Math.max(
+                    dailyData.counts.build_demo,
+                    stored.counts.build_demo || 0,
+                  );
+                }
+              }
+              if (stored.goal) dailyData.goal = stored.goal;
+            }
+          } catch (e) {}
+          if (!dailyData.date) dailyData.date = todayStr();
+          updateDailyUI();
+        }
+
+        function incrementDailyCount(tplKey) {
+          const today = todayStr();
+          if (dailyData.date !== today) {
+            dailyData.date = today;
+            dailyData.counts = { job: 0, build_no_demo: 0, build_demo: 0 };
+          }
+          if (dailyData.counts[tplKey] !== undefined)
+            dailyData.counts[tplKey]++;
+          syncTodayToHistory();
+          updateDailyUI();
+          try {
+            localStorage.setItem("lf_daily_v1", JSON.stringify(dailyData));
+          } catch (e) {}
+          schedulePush();
+        }
+
+        function saveDailyGoal() {
+          const inp =
+            document.getElementById("daily-goal-input") ||
+            document.getElementById("m-daily-goal-input");
+          const val = parseInt(inp?.value) || 10;
+          dailyData.goal = Math.max(1, Math.min(200, val));
+          const d = document.getElementById("daily-goal-input"),
+            m = document.getElementById("m-daily-goal-input");
+          if (d) d.value = dailyData.goal;
+          if (m) m.value = dailyData.goal;
+          try {
+            localStorage.setItem("lf_daily_v1", JSON.stringify(dailyData));
+          } catch (e) {}
+          schedulePush();
+          updateDailyUI();
+          showToast("🎯 Goal set to " + dailyData.goal + "/day", "success");
+        }
+      }
+
+      // ── Merge today's counts into local history ───────────────────────────
+      function syncTodayToHistory() {
+        const today = todayStr();
+        const counts =
+          dailyData.date === today
+            ? dailyData.counts
+            : { job: 0, build_no_demo: 0, build_demo: 0 };
+        const prev = dailyHistory[today] || {
+          job: 0,
+          build_no_demo: 0,
+          build_demo: 0,
+        };
+        dailyHistory[today] = {
+          job: Math.max(prev.job || 0, counts.job || 0),
+          build_no_demo: Math.max(
+            prev.build_no_demo || 0,
+            counts.build_no_demo || 0,
+          ),
+          build_demo: Math.max(prev.build_demo || 0, counts.build_demo || 0),
+        };
+        try {
+          localStorage.setItem(
+            "lf_daily_history",
+            JSON.stringify(dailyHistory),
+          );
+        } catch (e) {}
+      }
+
+      function updateDailyUI() {
+        const today = todayStr();
+        const counts =
+          dailyData.date === today
+            ? dailyData.counts
+            : { job: 0, build_no_demo: 0, build_demo: 0 };
+        const total =
+          (counts.job || 0) +
+          (counts.build_no_demo || 0) +
+          (counts.build_demo || 0);
+        const goal = dailyData.goal || 10;
+        const pct = Math.min(100, Math.round((total / goal) * 100));
+        const dateStr = new Date().toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        });
+        const set = (id, v) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = v;
+        };
+        set("daily-date-label", dateStr);
+        set("m-daily-date-label", dateStr);
+        set("daily-count", total);
+        set("m-daily-count", total);
+        set("daily-job", counts.job || 0);
+        set("m-daily-job", counts.job || 0);
+        set("daily-build", counts.build_no_demo || 0);
+        set("m-daily-build", counts.build_no_demo || 0);
+        set("daily-buildplus", counts.build_demo || 0);
+        set("m-daily-buildplus", counts.build_demo || 0);
+        set("daily-goal-label", goal + " / day");
+        set("settings-daily-count", total);
+        const gi = document.getElementById("daily-goal-input"),
+          gm = document.getElementById("m-daily-goal-input");
+        if (gi) gi.value = goal;
+        if (gm) gm.value = goal;
+        const pb = document.getElementById("daily-progress-bar"),
+          mb = document.getElementById("m-daily-progress-bar");
+        if (pb) pb.style.width = pct + "%";
+        if (mb) mb.style.width = pct + "%";
+        // Ring: always purple (#9855f6), dynamic dashoffset only
+        const ring = document.getElementById("daily-ring-fill"),
+          mRing = document.getElementById("m-daily-ring-fill");
+        if (ring) ring.setAttribute("stroke-dashoffset", 226 * (1 - pct / 100));
+        if (mRing)
+          mRing.setAttribute("stroke-dashoffset", 176 * (1 - pct / 100));
+      }
 
       // ═══════════════════════════════════════════════════════
       //  SYNC ENGINE
@@ -2056,6 +3083,7 @@
             body: JSON.stringify({
               statuses,
               outreach: outreachLog.slice(0, 500),
+              daily: dailyData,
             }),
           });
           if (!res.ok) throw new Error();
@@ -2069,6 +3097,9 @@
               JSON.stringify(outreachLog.slice(0, 500)),
             );
           } catch (e) {}
+          try {
+            localStorage.setItem("lf_daily_v1", JSON.stringify(dailyData));
+          } catch (e) {}
         } catch (e) {
           setSyncState("error");
           setTimeout(pushStatuses, 5000);
@@ -2081,10 +3112,14 @@
 
       async function pullStatuses() {
         try {
-          const res = await fetch(STATUS_API);
+          const res = await Promise.race([
+            fetch(STATUS_API),
+            new Promise((_, rej) =>
+              setTimeout(() => rej(new Error("timeout")), 5000),
+            ),
+          ]);
           if (!res.ok) throw new Error();
           const data = await res.json();
-          // Support both old format (plain object of statuses) and new format ({statuses, outreach})
           const map = data.statuses !== undefined ? data.statuses : data;
           leads.forEach((l) => {
             const v = map[l.id];
@@ -2094,12 +3129,63 @@
               l.replied = !!v.replied;
             } else {
               l.status = v;
-            } // legacy string format
-            if (l.status === "freelance") l.status = "build_plus"; // migrate old name
+            }
+            if (l.status === "freelance") l.status = "build_plus";
           });
-          // Pull outreach log if present
-          if (Array.isArray(data.outreach) && data.outreach.length > 0) {
+          if (Array.isArray(data.outreach) && data.outreach.length > 0)
             outreachLog = data.outreach;
+          // Load history from cloud
+          if (data.history && typeof data.history === "object") {
+            // Merge cloud history with local (take max per day)
+            for (const [date, entry] of Object.entries(data.history)) {
+              const prev = dailyHistory[date] || {
+                job: 0,
+                build_no_demo: 0,
+                build_demo: 0,
+              };
+              dailyHistory[date] = {
+                job: Math.max(prev.job || 0, entry.job || 0),
+                build_no_demo: Math.max(
+                  prev.build_no_demo || 0,
+                  entry.build_no_demo || 0,
+                ),
+                build_demo: Math.max(
+                  prev.build_demo || 0,
+                  entry.build_demo || 0,
+                ),
+              };
+            }
+            try {
+              localStorage.setItem(
+                "lf_daily_history",
+                JSON.stringify(dailyHistory),
+              );
+            } catch (e) {}
+          }
+          if (data.daily) {
+            const today = todayStr();
+            if (data.daily.date === today) {
+              const local =
+                dailyData.date === today
+                  ? dailyData.counts
+                  : { job: 0, build_no_demo: 0, build_demo: 0 };
+              dailyData.date = today;
+              dailyData.counts = {
+                job: Math.max(data.daily.counts?.job || 0, local.job || 0),
+                build_no_demo: Math.max(
+                  data.daily.counts?.build_no_demo || 0,
+                  local.build_no_demo || 0,
+                ),
+                build_demo: Math.max(
+                  data.daily.counts?.build_demo || 0,
+                  local.build_demo || 0,
+                ),
+              };
+              if (data.daily.goal) dailyData.goal = data.daily.goal;
+            } else if (data.daily.goal) {
+              dailyData.goal = data.daily.goal;
+            }
+            updateDailyUI();
           }
           try {
             localStorage.setItem("lf_statuses_v2", JSON.stringify(map));
@@ -2110,8 +3196,32 @@
               JSON.stringify(outreachLog),
             );
           } catch (e) {}
+          // Also load history from localStorage fallback if cloud didn't have it
+          try {
+            const raw = localStorage.getItem("lf_daily_history");
+            if (raw) {
+              const h = JSON.parse(raw);
+              for (const [date, entry] of Object.entries(h)) {
+                const prev = dailyHistory[date] || {
+                  job: 0,
+                  build_no_demo: 0,
+                  build_demo: 0,
+                };
+                dailyHistory[date] = {
+                  job: Math.max(prev.job || 0, entry.job || 0),
+                  build_no_demo: Math.max(
+                    prev.build_no_demo || 0,
+                    entry.build_no_demo || 0,
+                  ),
+                  build_demo: Math.max(
+                    prev.build_demo || 0,
+                    entry.build_demo || 0,
+                  ),
+                };
+              }
+            }
+          } catch (e2) {}
         } catch (e) {
-          // Offline fallback — load from localStorage
           try {
             const raw = localStorage.getItem("lf_statuses_v2");
             if (raw) {
@@ -2131,9 +3241,7 @@
           } catch (e2) {}
           try {
             const raw = localStorage.getItem("lf_outreach_log");
-            if (raw) {
-              outreachLog = JSON.parse(raw);
-            }
+            if (raw) outreachLog = JSON.parse(raw);
           } catch (e2) {}
           setSyncState("error", "Offline — using cached data");
         }
@@ -2149,20 +3257,22 @@
       }
 
       // ═══════════════════════════════════════════════════════
-      //  LEADS LOADING — tries KV first, falls back to embedded
+      //  LEADS LOADING
       // ═══════════════════════════════════════════════════════
       async function loadLeads() {
         setLoadingMsg("Fetching leads from cloud…");
         let kvLeads = null;
         try {
-          const res = await fetch(LEADS_API);
+          const res = await Promise.race([
+            fetch(LEADS_API),
+            new Promise((_, rej) =>
+              setTimeout(() => rej(new Error("timeout")), 5000),
+            ),
+          ]);
           if (res.ok) kvLeads = await res.json();
-        } catch (e) {
-          /* network error, will use fallback */
-        }
+        } catch (e) {}
 
         if (Array.isArray(kvLeads) && kvLeads.length > 0) {
-          // KV has data — use it
           dataSource = "cloud";
           leads = kvLeads.map((l) => ({
             ...l,
@@ -2172,36 +3282,41 @@
             checked: false,
           }));
         } else {
-          // KV empty or unreachable — seed from embedded FALLBACK_LEADS
+          // Use fallback leads (local dev or cloud empty/unreachable)
           dataSource = kvLeads === null ? "offline-fallback" : "fallback";
-          leads = FALLBACK_LEADS.map((l, i) => ({
+          leads = (
+            typeof FALLBACK_LEADS !== "undefined" ? FALLBACK_LEADS : []
+          ).map((l, i) => ({
             ...l,
             id: String(l.id || i + 1),
             status: "none",
             replied: false,
             checked: false,
           }));
-          // If KV was just empty (not offline), push the fallback data up to seed it
-          if (kvLeads !== null) {
+          // Only attempt cloud seed if we got a real empty response (not a network error)
+          // and we're not on Live Server (check for non-localhost vercel env)
+          if (
+            kvLeads !== null &&
+            kvLeads !== undefined &&
+            window.location.hostname !== "127.0.0.1" &&
+            window.location.hostname !== "localhost"
+          ) {
             setLoadingMsg("Seeding cloud with initial data…");
             try {
-              await fetch(LEADS_API, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(
-                  FALLBACK_LEADS.map((l, i) => ({
-                    ...l,
-                    id: String(l.id || i + 1),
-                  })),
+              await Promise.race([
+                fetch(LEADS_API, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(leads.map((l) => ({ ...l }))),
+                }),
+                new Promise((_, rej) =>
+                  setTimeout(() => rej(new Error("timeout")), 5000),
                 ),
-              });
+              ]);
               dataSource = "cloud";
-            } catch (e) {
-              /* seeding failed, that's fine, data still loaded */
-            }
+            } catch (e) {}
           }
         }
-
         rebuildCategoryIndex();
       }
 
@@ -2211,7 +3326,6 @@
           catCounts[l.category] = (catCounts[l.category] || 0) + 1;
         });
         categories = Object.keys(catCounts).sort();
-        // Reset category dropdowns so they get rebuilt with new data
         const dm = document.getElementById("catDropMenu");
         if (dm) dm.innerHTML = "";
         const mm = document.getElementById("mCatDropMenu");
@@ -2219,7 +3333,7 @@
       }
 
       // ═══════════════════════════════════════════════════════
-      //  CSV UPLOAD & PARSING
+      //  CSV UPLOAD
       // ═══════════════════════════════════════════════════════
       function handleDragOver(e) {
         e.preventDefault();
@@ -2235,7 +3349,6 @@
         if (f && f.name.endsWith(".csv")) handleCsvFile(f);
         else showToast("Please drop a .csv file", "error");
       }
-
       function handleCsvFile(file) {
         if (!file) return;
         const reader = new FileReader();
@@ -2257,7 +3370,6 @@
             });
             if (!res.ok) throw new Error("Server error " + res.status);
             const result = await res.json();
-            // Reload leads from cloud to get the merged dataset
             await loadLeads();
             await pullStatuses();
             updateEverything();
@@ -2270,19 +3382,14 @@
             setUploadStatus("❌ Upload failed: " + err.message, "error");
             showToast("Upload failed", "error");
           }
-          // reset file input
           document.getElementById("csv-file-input").value = "";
         };
         reader.readAsText(file, "utf-8");
       }
-
       function parseCSV(text) {
-        // Strip BOM
-        text = text.replace(/^﻿/, "");
+        text = text.replace(/^\uFEFF/, "");
         const lines = text.split(/\r?\n/).filter((l) => l.trim());
         if (lines.length < 2) return [];
-
-        // Parse header
         const headers = parseCSVRow(lines[0]).map((h) => h.trim());
         const idx = (names) => {
           for (const n of names) {
@@ -2293,7 +3400,6 @@
           }
           return -1;
         };
-
         const col = {
           id: idx(["Place ID", "id", "place_id"]),
           name: idx(["Business Name", "name", "business_name"]),
@@ -2305,34 +3411,29 @@
           rating: idx(["Rating", "rating"]),
           reviews: idx(["Reviews", "reviews", "review_count"]),
         };
-
         const results = [];
         for (let i = 1; i < lines.length; i++) {
           const row = parseCSVRow(lines[i]);
           if (row.length < 3) continue;
           const g = (c) => (c >= 0 ? (row[c] || "").trim() : "");
-          const rating = parseFloat(g(col.rating)) || null;
-          const reviews = parseInt(g(col.reviews)) || null;
-          const id = g(col.id) || `csv_${i}_${Date.now()}`;
           results.push({
-            id,
+            id: g(col.id) || `csv_${i}_${Date.now()}`,
             name: g(col.name),
             phone: g(col.phone),
             website: g(col.website),
             email: g(col.email),
             category: g(col.category) || "Uncategorized",
             address: g(col.address),
-            rating,
-            reviews,
+            rating: parseFloat(g(col.rating)) || null,
+            reviews: parseInt(g(col.reviews)) || null,
           });
         }
         return results.filter((r) => r.name);
       }
-
       function parseCSVRow(line) {
         const result = [];
-        let cur = "";
-        let inQ = false;
+        let cur = "",
+          inQ = false;
         for (let i = 0; i < line.length; i++) {
           const c = line[i];
           if (c === '"') {
@@ -2345,7 +3446,6 @@
         result.push(cur);
         return result.map((s) => s.replace(/^"|"$/g, "").replace(/""/g, '"'));
       }
-
       function setUploadStatus(msg, type) {
         ["upload-status", "m-upload-status"].forEach((id) => {
           const el = document.getElementById(id);
@@ -2361,7 +3461,6 @@
           el.textContent = msg;
         });
       }
-
       function setLoadingMsg(msg) {
         const el = document.getElementById("loading-msg");
         if (el) el.textContent = msg;
@@ -2484,20 +3583,19 @@
       }
 
       // ═══════════════════════════════════════════════════════
-      //  STATS
+      //  STATS + LIGHTHOUSE DONUT
       // ═══════════════════════════════════════════════════════
       function updateStats() {
-        const job = leads.filter((l) => l.status === "job").length;
-        const build = leads.filter((l) => l.status === "build").length;
-        const buildPlus = leads.filter((l) => l.status === "build_plus").length;
-        const skip = leads.filter((l) => l.status === "none").length;
-        const dismissed = leads.filter((l) => l.status === "dismissed").length;
-        const free = build + buildPlus;
-        const tagged = job + free;
-        const total = leads.length;
-        const unset = total - tagged - skip - dismissed;
-        const pct = total ? Math.round((tagged / total) * 100) : 0;
-        const hiRate = leads.filter((l) => l.rating >= 4.5).length;
+        const job = leads.filter((l) => l.status === "job").length,
+          build = leads.filter((l) => l.status === "build").length,
+          buildPlus = leads.filter((l) => l.status === "build_plus").length,
+          skip = leads.filter((l) => l.status === "none").length,
+          dismissed = leads.filter((l) => l.status === "dismissed").length;
+        const free = build + buildPlus,
+          tagged = job + free,
+          total = leads.length,
+          unset = total - tagged - skip - dismissed,
+          pct = total ? Math.round((tagged / total) * 100) : 0;
         const replied = leads.filter((l) => l.replied).length;
         const set = (id, v) => {
           const el = document.getElementById(id);
@@ -2509,58 +3607,33 @@
         set("ds-job", job);
         set("ds-free", free);
         set("ds-unset", unset);
-        set("ds-highrated", hiRate);
         set("ds-replied", replied);
-        set("r-job", job);
-        set("r-build", build);
-        set("r-build-plus", buildPlus);
-        set("r-skip", skip);
-        set("r-dismissed", dismissed);
-        set("r-unset", unset);
-        set("radial-pct", pct + "%");
         set("sb-remaining", total - tagged);
         set("sb-pct", pct + "% of batch tagged");
         const sp = document.getElementById("sb-progress");
         if (sp) sp.style.width = pct + "%";
-        // Drive multi-segment donut (circumference ≈ 364.4 for r=58)
-        const C = 364.4;
-        const segs = [
-          { id: "d-seg-job", count: job },
-          { id: "d-seg-build", count: build },
-          { id: "d-seg-build-plus", count: buildPlus },
-          { id: "d-seg-skip", count: skip },
-          { id: "d-seg-dismissed", count: dismissed },
-        ];
-        let offset = 0;
-        segs.forEach((seg) => {
-          const el = document.getElementById(seg.id);
-          if (!el) return;
-          const arc = total ? C * (seg.count / total) : 0;
-          el.style.strokeDasharray = arc + " " + (C - arc);
-          el.style.strokeDashoffset = (-offset).toString();
-          el.style.transform = `rotate(${-90 + (360 * offset) / C}deg)`;
-          el.style.transformOrigin = "80px 80px";
-          offset += arc;
-        });
+        set("lh-pct", pct + "%");
+        set("m-lh-pct", pct + "%");
+        set("lh-r-job", job);
+        set("lh-r-build", build);
+        set("lh-r-buildplus", buildPlus);
+        set("lh-r-skip", skip);
+        set("lh-r-dismissed", dismissed);
+        set("lh-r-unset", unset);
+        set("m-lh-r-job", job);
+        set("m-lh-r-build", build);
+        set("m-lh-r-buildplus", buildPlus);
+        set("m-lh-r-skip", skip);
+        set("m-lh-r-dismissed", dismissed);
         set("m-ds-total", total);
         set("m-ds-tagged", tagged);
         set("m-ds-pct", pct + "%");
         set("m-ds-job", job);
         set("m-ds-free", free);
-        set("m-r-job", job);
-        set("m-r-free", free);
-        set("m-r-unset", unset);
-        set("m-radial-pct", pct + "%");
-        const mp = document.getElementById("m-prog-bar");
-        if (mp) mp.style.width = pct + "%";
-        const mr = document.getElementById("m-radial-ring");
-        if (mr) mr.setAttribute("stroke-dashoffset", 251 * (1 - pct / 100));
-        // Settings panel info
         set("s-total", total);
         set("s-tagged", tagged + " / " + total);
         set("s-cats", categories.length);
         set("s-source", dataSource);
-        // Dashboard subtitle
         set("d-lead-count", total);
         set(
           "d-source-label",
@@ -2574,6 +3647,168 @@
           "leads-subtitle",
           total + " leads · tag each as Job, Build, Build+, or Skip.",
         );
+        // ── Donut uses grey for Skip ──
+        renderLighthouseDonut(job, build, buildPlus, skip, dismissed, total);
+        renderMobileLighthouseDonut(
+          job,
+          build,
+          buildPlus,
+          skip,
+          dismissed,
+          total,
+        );
+      }
+
+      // ── Desktop Lighthouse donut — centre 80,80, r=60, viewBox 160×160 ──
+      function renderLighthouseDonut(
+        job,
+        build,
+        buildPlus,
+        skip,
+        dismissed,
+        total,
+      ) {
+        const svgEl = document.getElementById("lh-svg");
+        if (!svgEl) return;
+        // Clear all children except the track circle
+        while (svgEl.lastChild) svgEl.removeChild(svgEl.lastChild);
+
+        // Re-add track
+        const track = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "circle",
+        );
+        track.setAttribute("cx", "80");
+        track.setAttribute("cy", "80");
+        track.setAttribute("r", "60");
+        track.setAttribute("fill", "none");
+        track.setAttribute("stroke", "#1e293b10");
+        track.setAttribute("stroke-width", "16");
+        svgEl.appendChild(track);
+
+        const centerX = 80,
+          centerY = 80,
+          radius = 60,
+          strokeWidth = 16,
+          gapAngle = 2,
+          minAngle = 8;
+        // Skip color is now light grey #D3D3D3
+        const data = [
+          { count: job, color: "#10b981" },
+          { count: build, color: "#9855f6" },
+          { count: buildPlus, color: "#3b82f6" },
+          { count: skip, color: "#D3D3D3" },
+          { count: dismissed, color: "#ef4444" },
+        ];
+        if (!total) return;
+        const active = data.filter((s) => s.count > 0);
+        if (!active.length) return;
+        if (active.length === 1) {
+          const c = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "circle",
+          );
+          c.setAttribute("cx", "80");
+          c.setAttribute("cy", "80");
+          c.setAttribute("r", "60");
+          c.setAttribute("fill", "none");
+          c.setAttribute("stroke", active[0].color);
+          c.setAttribute("stroke-width", "16");
+          svgEl.appendChild(c);
+          return;
+        }
+        const totalGaps = active.length * gapAngle,
+          availableAngle = 360 - totalGaps;
+        let angles = active.map((s) => (s.count / total) * availableAngle);
+        let totalBorrow = 0;
+        angles = angles.map((a) => {
+          if (a < minAngle) {
+            totalBorrow += minAngle - a;
+            return minAngle;
+          }
+          return a;
+        });
+        const largeTotal = angles
+          .filter((a) => a > minAngle)
+          .reduce((s, a) => s + a, 0);
+        if (largeTotal > 0 && totalBorrow > 0)
+          angles = angles.map((a) =>
+            a > minAngle
+              ? Math.max(minAngle, a - (a / largeTotal) * totalBorrow)
+              : a,
+          );
+
+        function polarToCartesian(cx, cy, r, angleDeg) {
+          const rad = ((angleDeg - 90) * Math.PI) / 180;
+          return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+        }
+        let currentAngle = 0;
+        active.forEach((seg, i) => {
+          const angle = angles[i],
+            endAngle = currentAngle + angle;
+          const start = polarToCartesian(
+            centerX,
+            centerY,
+            radius,
+            currentAngle,
+          );
+          const end = polarToCartesian(centerX, centerY, radius, endAngle);
+          const largeArc = angle > 180 ? 1 : 0;
+          const d = `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y}`;
+          const path = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "path",
+          );
+          path.setAttribute("d", d);
+          path.setAttribute("fill", "none");
+          path.setAttribute("stroke", seg.color);
+          path.setAttribute("stroke-width", strokeWidth);
+          path.setAttribute("stroke-linecap", "butt");
+          svgEl.appendChild(path);
+          currentAngle = endAngle + gapAngle;
+        });
+      }
+
+      // ── Mobile Lighthouse donut ───────────────────────────
+      function renderMobileLighthouseDonut(
+        job,
+        build,
+        buildPlus,
+        skip,
+        dismissed,
+        total,
+      ) {
+        const C = 251.33,
+          GAP = 3;
+        // Skip color is #D3D3D3 (set in SVG stroke attribute in HTML)
+        const segs = [
+          { id: "m-lh-seg-job", count: job },
+          { id: "m-lh-seg-build", count: build },
+          { id: "m-lh-seg-buildplus", count: buildPlus },
+          { id: "m-lh-seg-skip", count: skip },
+          { id: "m-lh-seg-dismissed", count: dismissed },
+        ];
+        const numNZ = segs.filter((s) => s.count > 0).length;
+        const totalGap = numNZ > 1 ? numNZ * GAP : 0;
+        const availC = C - totalGap;
+        let offset = 0;
+        segs.forEach((seg) => {
+          const el = document.getElementById(seg.id);
+          if (!el) return;
+          if (!total || seg.count === 0) {
+            el.setAttribute("stroke-dasharray", "0 " + C);
+            el.setAttribute("stroke-dashoffset", "0");
+            el.style.transform = "rotate(-90deg)";
+            el.style.transformOrigin = "55px 55px";
+            return;
+          }
+          const arc = (seg.count / total) * availC;
+          el.setAttribute("stroke-dasharray", arc + " " + (C - arc));
+          el.setAttribute("stroke-dashoffset", -offset);
+          el.style.transform = `rotate(${-90 + (offset / C) * 360}deg)`;
+          el.style.transformOrigin = "55px 55px";
+          offset += arc + GAP;
+        });
       }
 
       // ═══════════════════════════════════════════════════════
@@ -2607,16 +3842,16 @@
                 sc = l.status === "none" ? "sel-skip" : "",
                 dc = l.status === "dismissed" ? "sel-dismissed" : "";
               return `<tr data-lead-id="${esc(l.id)}" class="hover:bg-primary/5 transition-colors group">
-        <td class="px-4 py-3.5"><input type="checkbox" data-id="${esc(l.id)}" ${l.checked ? "checked" : ""} onchange="toggleCheck(this)" class="rounded border-slate-300 text-primary w-3.5 h-3.5"/></td>
-        <td class="px-4 py-3.5"><div class="flex items-center gap-1.5"><span class="font-bold text-slate-900 text-sm">${esc(l.name)}</span>${dm ? `<a href="${esc(l.website)}" target="_blank" class="text-primary opacity-0 group-hover:opacity-100 transition-opacity"><span class="material-symbols-outlined" style="font-size:14px">open_in_new</span></a>` : ""}</div><p class="text-[11px] text-slate-400 font-mono mt-0.5">${dm ? `<a href="${esc(l.website)}" target="_blank" class="hover:text-primary">${esc(dm)}</a>` : "<span class='text-slate-300'>no website</span>"}</p></td>
-        <td class="px-4 py-3.5"><span class="inline-block rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-[10px] font-bold uppercase max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap">${esc(l.category)}</span></td>
-        <td class="px-4 py-3.5"><div class="flex items-center gap-1"><span class="material-symbols-outlined fill-1 text-amber-400" style="font-size:13px">star</span><span class="font-bold text-slate-700 text-sm">${l.rating || "—"}</span></div></td>
-        <td class="px-4 py-3.5 text-xs font-medium text-slate-500">${l.reviews ? Number(l.reviews).toLocaleString() : "—"}</td>
-        <td class="px-4 py-3.5"><p class="text-xs text-slate-600 font-mono">${esc(l.phone || "—")}</p>${l.email ? `<p class="text-[10px] text-primary truncate max-w-[140px] email-copy" onclick="copyEmail('${esc(l.email)}')" title="Click to copy">${esc(l.email)}</p>` : ""}</td>
-        <td class="px-4 py-3.5"><div class="tbl-seg mx-auto w-fit"><button class="tbl-btn ${jc}" onclick="setLeadStatus('${esc(l.id)}','job',this)">Job</button><button class="tbl-btn ${bc}" onclick="setLeadStatus('${esc(l.id)}','build',this)">Build</button><button class="tbl-btn ${bpc}" onclick="setLeadStatus('${esc(l.id)}','build_plus',this)">Build+</button><button class="tbl-btn ${sc}" onclick="setLeadStatus('${esc(l.id)}','none',this)">Skip</button><button class="tbl-btn ${dc}" onclick="setLeadStatus('${esc(l.id)}','dismissed',this)">✕</button></div></td>
-        <td class="px-3 py-3.5 text-center">${quickCopyBtn(l)}</td>
-        <td class="px-4 py-3.5 text-center"><button onclick="toggleReplied('${esc(l.id)}',this)" title="Toggle replied" class="w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-all ${l.replied ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-300 hover:bg-emerald-50 hover:text-emerald-400"}"><span class="material-symbols-outlined fill-1" style="font-size:16px">${l.replied ? "mark_email_read" : "mail"}</span></button></td>
-      </tr>`;
+<td class="px-4 py-3.5"><input type="checkbox" data-id="${esc(l.id)}" ${l.checked ? "checked" : ""} onchange="toggleCheck(this)" class="rounded border-slate-300 text-primary w-3.5 h-3.5"/></td>
+<td class="px-4 py-3.5"><div class="flex items-center gap-1.5"><span class="font-bold text-slate-900 text-sm">${esc(l.name)}</span>${dm ? `<a href="${esc(l.website)}" target="_blank" class="text-primary opacity-0 group-hover:opacity-100 transition-opacity"><span class="material-symbols-outlined" style="font-size:14px">open_in_new</span></a>` : ""}</div><p class="text-[11px] text-slate-400 font-mono mt-0.5">${dm ? `<a href="${esc(l.website)}" target="_blank" class="hover:text-primary">${esc(dm)}</a>` : "<span class='text-slate-300'>no website</span>"}</p></td>
+<td class="px-4 py-3.5"><span class="inline-block rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-[10px] font-bold uppercase max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap">${esc(l.category)}</span></td>
+<td class="px-4 py-3.5"><div class="flex items-center gap-1"><span class="material-symbols-outlined fill-1 text-amber-400" style="font-size:13px">star</span><span class="font-bold text-slate-700 text-sm">${l.rating || "—"}</span></div></td>
+<td class="px-4 py-3.5 text-xs font-medium text-slate-500">${l.reviews ? Number(l.reviews).toLocaleString() : "—"}</td>
+<td class="px-4 py-3.5"><p class="text-xs text-slate-600 font-mono">${esc(l.phone || "—")}</p>${l.email ? `<p class="text-[10px] text-primary truncate max-w-[140px] email-copy" onclick="copyEmail('${esc(l.email)}')" title="Click to copy">${esc(l.email)}</p>` : ""}</td>
+<td class="px-4 py-3.5"><div class="tbl-seg mx-auto w-fit"><button class="tbl-btn ${jc}" onclick="setLeadStatus('${esc(l.id)}','job',this)">Job</button><button class="tbl-btn ${bc}" onclick="setLeadStatus('${esc(l.id)}','build',this)">Build</button><button class="tbl-btn ${bpc}" onclick="setLeadStatus('${esc(l.id)}','build_plus',this)">Build+</button><button class="tbl-btn ${sc}" onclick="setLeadStatus('${esc(l.id)}','none',this)">Skip</button><button class="tbl-btn ${dc}" onclick="setLeadStatus('${esc(l.id)}','dismissed',this)">✕</button></div></td>
+<td class="px-3 py-3.5 text-center">${quickCopyBtn(l)}</td>
+<td class="px-4 py-3.5 text-center"><button onclick="toggleReplied('${esc(l.id)}',this)" title="Toggle replied" class="w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-all ${l.replied ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-300 hover:bg-emerald-50 hover:text-emerald-400"}"><span class="material-symbols-outlined fill-1" style="font-size:16px">${l.replied ? "mark_email_read" : "mail"}</span></button></td>
+</tr>`;
             })
             .join("");
         }
@@ -2708,9 +3943,9 @@
                 sc = l.status === "none" ? "sel-skip" : "",
                 dc = l.status === "dismissed" ? "sel-dismissed" : "";
               return `<div data-lead-id="${esc(l.id)}" class="flex flex-col bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-        <div class="p-4"><div class="flex justify-between items-start gap-2"><div class="flex-1 min-w-0"><h3 class="font-bold text-sm text-slate-900 leading-tight">${esc(l.name)}</h3>${dm ? `<a class="text-primary text-xs font-medium flex items-center gap-0.5 mt-0.5" href="${esc(l.website)}" target="_blank">${esc(dm)}<span class="material-symbols-outlined" style="font-size:11px">open_in_new</span></a>` : `<span class="text-slate-400 text-xs">No website</span>`}</div><div class="flex flex-col items-end gap-1 flex-shrink-0">${l.rating ? `<div class="flex items-center gap-0.5 bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full"><span class="material-symbols-outlined fill-1" style="font-size:11px">star</span><span class="text-xs font-bold">${l.rating}</span></div>` : ""}<span class="inline-block rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[9px] font-bold uppercase">${esc(l.category)}</span></div></div>${l.phone || l.email ? `<div class="mt-2.5 flex flex-wrap gap-2">${l.phone ? `<span class="text-[11px] text-slate-500 font-mono flex items-center gap-1"><span class="material-symbols-outlined text-slate-300" style="font-size:13px">phone</span>${esc(l.phone)}</span>` : ""}${l.email ? `<span class="text-[11px] text-primary email-copy" onclick="copyEmail('${esc(l.email)}')">${esc(l.email)}</span>` : ""}</div>` : ""} ${l.reviews ? `<div class="mt-1.5 flex items-center gap-1 text-slate-400 text-[11px]"><span class="material-symbols-outlined" style="font-size:12px">reviews</span>${Number(l.reviews).toLocaleString()} Reviews</div>` : ""}</div>
-        <div class="bg-slate-50 px-3 py-2.5 border-t border-slate-100"><div class="flex items-center gap-2"><div class="action-seg flex-1"><button class="action-btn ${jc}" onclick="setLeadStatus('${esc(l.id)}','job',this)">Job</button><button class="action-btn ${bc}" onclick="setLeadStatus('${esc(l.id)}','build',this)">Build</button><button class="action-btn ${bpc}" onclick="setLeadStatus('${esc(l.id)}','build_plus',this)">Build+</button><button class="action-btn ${sc}" onclick="setLeadStatus('${esc(l.id)}','none',this)">Skip</button><button class="action-btn ${dc}" onclick="setLeadStatus('${esc(l.id)}','dismissed',this)">✕</button></div>${quickCopyBtn(l)}<button onclick="toggleReplied('${esc(l.id)}',this)" title="Replied?" class="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all ${l.replied ? "bg-emerald-100 text-emerald-600" : "bg-white border border-slate-200 text-slate-300 hover:text-emerald-400"}"><span class="material-symbols-outlined fill-1" style="font-size:18px">${l.replied ? "mark_email_read" : "mail"}</span></button></div></div>
-      </div>`;
+<div class="p-4"><div class="flex justify-between items-start gap-2"><div class="flex-1 min-w-0"><h3 class="font-bold text-sm text-slate-900 leading-tight">${esc(l.name)}</h3>${dm ? `<a class="text-primary text-xs font-medium flex items-center gap-0.5 mt-0.5" href="${esc(l.website)}" target="_blank">${esc(dm)}<span class="material-symbols-outlined" style="font-size:11px">open_in_new</span></a>` : `<span class="text-slate-400 text-xs">No website</span>`}</div><div class="flex flex-col items-end gap-1 flex-shrink-0">${l.rating ? `<div class="flex items-center gap-0.5 bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full"><span class="material-symbols-outlined fill-1" style="font-size:11px">star</span><span class="text-xs font-bold">${l.rating}</span></div>` : ""}<span class="inline-block rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[9px] font-bold uppercase">${esc(l.category)}</span></div></div>${l.phone || l.email ? `<div class="mt-2.5 flex flex-wrap gap-2">${l.phone ? `<span class="text-[11px] text-slate-500 font-mono flex items-center gap-1"><span class="material-symbols-outlined text-slate-300" style="font-size:13px">phone</span>${esc(l.phone)}</span>` : ""}${l.email ? `<span class="text-[11px] text-primary email-copy" onclick="copyEmail('${esc(l.email)}')">${esc(l.email)}</span>` : ""}</div>` : ""} ${l.reviews ? `<div class="mt-1.5 flex items-center gap-1 text-slate-400 text-[11px]"><span class="material-symbols-outlined" style="font-size:12px">reviews</span>${Number(l.reviews).toLocaleString()} Reviews</div>` : ""}</div>
+<div class="bg-slate-50 px-3 py-2.5 border-t border-slate-100"><div class="flex items-center gap-2"><div class="action-seg flex-1"><button class="action-btn ${jc}" onclick="setLeadStatus('${esc(l.id)}','job',this)">Job</button><button class="action-btn ${bc}" onclick="setLeadStatus('${esc(l.id)}','build',this)">Build</button><button class="action-btn ${bpc}" onclick="setLeadStatus('${esc(l.id)}','build_plus',this)">Build+</button><button class="action-btn ${sc}" onclick="setLeadStatus('${esc(l.id)}','none',this)">Skip</button><button class="action-btn ${dc}" onclick="setLeadStatus('${esc(l.id)}','dismissed',this)">✕</button></div>${quickCopyBtn(l)}<button onclick="toggleReplied('${esc(l.id)}',this)" title="Replied?" class="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all ${l.replied ? "bg-emerald-100 text-emerald-600" : "bg-white border border-slate-200 text-slate-300 hover:text-emerald-400"}"><span class="material-symbols-outlined fill-1" style="font-size:18px">${l.replied ? "mark_email_read" : "mail"}</span></button></div></div>
+</div>`;
             })
             .join("");
         }
@@ -2768,7 +4003,6 @@
         if (!lead) return;
         if (lead.status === status) lead.status = "none";
         else lead.status = status;
-        // Update the status button segment visuals
         const seg = btn.closest(".tbl-seg,.action-seg");
         if (seg) {
           const btns = seg.querySelectorAll("button");
@@ -2789,7 +4023,6 @@
             btns[4]?.classList.add("sel-dismissed");
           else btns[3]?.classList.add("sel-skip");
         }
-        // Update the quick-copy button: find it by data-lead-id on the row root
         const rowRoot = btn.closest("[data-lead-id]");
         if (rowRoot) {
           const copyBtn = rowRoot.querySelector(".quick-copy-btn");
@@ -2825,13 +4058,10 @@
         const lead = leads.find((l) => l.id === cb.dataset.id);
         if (lead) lead.checked = cb.checked;
       }
-
-      // ── Replied tracking ──────────────────────────────────
       function toggleReplied(id, btn) {
         const lead = leads.find((l) => l.id === id);
         if (!lead) return;
         lead.replied = !lead.replied;
-        // Update button visuals inline without full re-render
         const isDesktop = btn.closest("table") !== null;
         if (isDesktop) {
           btn.className = `w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-all ${lead.replied ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-300 hover:bg-emerald-50 hover:text-emerald-400"}`;
@@ -2846,7 +4076,6 @@
           lead.replied ? "✅ Marked as replied" : "↩️ Unmarked",
           lead.replied ? "success" : "default",
         );
-        // Refresh outreach log instantly if that tab is currently visible
         if (document.getElementById("view-outreach")?.style.display !== "none")
           renderOutreachLog();
         if (
@@ -2894,9 +4123,7 @@
           renderDesktopLeads();
           setupDropdowns();
         }
-        if (v === "outreach") {
-          renderOutreachLog();
-        }
+        if (v === "outreach") renderOutreachLog();
       }
       function showMobileView(v) {
         ["dashboard", "leads", "outreach", "settings"].forEach((n) => {
@@ -2927,9 +4154,7 @@
           renderMobileLeads();
           setupMobileDropdowns();
         }
-        if (v === "outreach") {
-          renderOutreachLog();
-        }
+        if (v === "outreach") renderOutreachLog();
         return false;
       }
 
@@ -2995,7 +4220,7 @@
           categories
             .map(
               (c) =>
-                `<div class="dropdown-item" onclick="setCatFilter('${c.replace(/'/g, "\'")}',this)">${esc(c)}<span class="count">${catCounts[c]}</span></div>`,
+                `<div class="dropdown-item" onclick="setCatFilter('${c.replace(/'/g, "\\'")}',this)">${esc(c)}<span class="count">${catCounts[c]}</span></div>`,
             )
             .join("");
       }
@@ -3007,7 +4232,7 @@
           categories
             .map(
               (c) =>
-                `<div class="dropdown-item" onclick="setMCatFilter('${c.replace(/'/g, "\'")}',this)">${esc(c)}<span class="count">${catCounts[c]}</span></div>`,
+                `<div class="dropdown-item" onclick="setMCatFilter('${c.replace(/'/g, "\\'")}',this)">${esc(c)}<span class="count">${catCounts[c]}</span></div>`,
             )
             .join("");
       }
@@ -3143,27 +4368,6 @@
           });
         }, 100);
       }
-      function renderRecentLeads() {
-        const top = [...leads]
-          .sort((a, b) => (b.reviews || 0) - (a.reviews || 0))
-          .slice(0, 5);
-        const dList = document.getElementById("recent-leads-list");
-        if (dList)
-          dList.innerHTML = top
-            .map(
-              (l) =>
-                `<div class="px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors"><div class="flex items-center gap-3"><div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-sm flex-shrink-0">${l.name[0]}</div><div><p class="text-sm font-bold text-slate-900">${esc(l.name)}</p><p class="text-xs text-slate-400">${esc(l.category)} · ${l.reviews ? Number(l.reviews).toLocaleString() + " reviews" : "—"}</p>${l.email ? `<p class="text-[10px] text-primary email-copy" onclick="copyEmail('${esc(l.email)}')">${esc(l.email)}</p>` : ""}</div></div><div class="flex items-center gap-1"><span class="material-symbols-outlined fill-1 text-amber-400" style="font-size:14px">star</span><span class="font-bold text-sm text-slate-700">${l.rating || "—"}</span></div></div>`,
-            )
-            .join("");
-        const mList = document.getElementById("m-recent-list");
-        if (mList)
-          mList.innerHTML = top
-            .map(
-              (l) =>
-                `<div class="px-4 py-3 flex items-center justify-between"><div class="flex items-center gap-2.5"><div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs flex-shrink-0">${l.name[0]}</div><div><p class="text-xs font-bold text-slate-900 max-w-[180px] truncate">${esc(l.name)}</p><p class="text-[10px] text-slate-400">${l.reviews ? Number(l.reviews).toLocaleString() + " reviews" : "—"}</p>${l.email ? `<p class="text-[10px] text-primary email-copy" onclick="copyEmail('${esc(l.email)}')">${esc(l.email)}</p>` : ""}</div></div><div class="flex items-center gap-1"><span class="material-symbols-outlined fill-1 text-amber-400" style="font-size:12px">star</span><span class="text-xs font-bold text-slate-700">${l.rating || "—"}</span></div></div>`,
-            )
-            .join("");
-      }
 
       // ═══════════════════════════════════════════════════════
       //  DANGER ZONE / EXPORT
@@ -3194,11 +4398,7 @@
         showToast("🗑️ All statuses reset", "default");
       }
       async function resetLeadsData() {
-        if (
-          !confirm(
-            "Wipe ALL leads from cloud? This removes them from KV. The embedded fallback data will reload on next visit.",
-          )
-        )
+        if (!confirm("Wipe ALL leads from cloud? This removes them from KV."))
           return;
         try {
           await fetch(LEADS_API, { method: "DELETE" });
@@ -3249,18 +4449,18 @@
       }
 
       // ═══════════════════════════════════════════════════════
-      //  FULL RE-RENDER HELPER
+      //  FULL RE-RENDER
       // ═══════════════════════════════════════════════════════
       function updateEverything() {
         updateStats();
         renderCatChart();
-        renderRecentLeads();
         renderDesktopLeads();
         renderMobileLeads();
+        updateDailyUI();
       }
 
       // ═══════════════════════════════════════════════════════
-      //  OUTREACH TEMPLATE ENGINE
+      //  TEMPLATES
       // ═══════════════════════════════════════════════════════
       const TEMPLATES = {
         job: {
@@ -3287,146 +4487,15 @@
             `Hi ${name} Team,\n\nI came across your website and felt there may be an opportunity to modernize the visual experience so it better reflects the quality of your services.\n\nTo demonstrate what I mean, I drafted a quick homepage concept tailored specifically to your brand — see the attached image. It is just a visual direction idea, but I believe it improves clarity, hierarchy, and overall perception while keeping things clean and modern.\n\nI specialize in building structured, performance-optimized websites ranging from clean static builds to React-based interactive platforms and CMS-powered systems, depending on business needs.\n\nYou can view more of my work here:\nhttps://devdeepsahaportfolio.vercel.app/\n\nIf you are open to discussing a structured revamp, I would be happy to explore this further and share more detailed suggestions.\n\nBest regards,\nDevdeep Saha\ndevdeep120205@gmail.com\nInstagram: @devdeepsaha`,
         },
       };
-
-      let currentTemplate = "job";
-      let selectedLeadId = null;
-
-      function setTemplate(key, btn) {
-        currentTemplate = key;
-        // Update all tab buttons (both desktop and mobile)
-        document.querySelectorAll(".tpl-tab").forEach((b) => {
-          const isActive = b.dataset.tpl === key;
-          b.classList.toggle("active-tab", isActive);
-          b.classList.toggle("bg-primary", isActive);
-          b.classList.toggle("text-white", isActive);
-          b.classList.toggle("border-primary", isActive);
-          b.classList.toggle("text-slate-500", !isActive);
-          b.classList.toggle("border-slate-200", !isActive);
-        });
-        updateTemplatePreview();
-      }
-
-      function updateTemplatePreview() {
-        const tpl = TEMPLATES[currentTemplate];
-        const lead = selectedLeadId
-          ? leads.find((l) => l.id === selectedLeadId)
-          : null;
-        const name = lead ? lead.name : "{Business Name}";
-        const msg = tpl.build(name);
-        // Show/hide image reminder banner for build_demo
-        ["tpl-image-note", "m-tpl-image-note"].forEach((id) => {
-          const el = document.getElementById(id);
-          if (el)
-            el.classList.toggle("hidden", currentTemplate !== "build_demo");
-        });
-
-        // Desktop
-        const preview = document.getElementById("tpl-preview");
-        const title = document.getElementById("tpl-title");
-        const toEl = document.getElementById("tpl-to");
-        const badge = document.getElementById("tpl-badge");
-        const chars = document.getElementById("tpl-chars");
-        if (preview) preview.textContent = msg;
-        if (title) title.textContent = tpl.title;
-        if (toEl) toEl.textContent = lead ? lead.name : "— pick a lead";
-        if (badge) {
-          badge.textContent = tpl.badge;
-          badge.className = `text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide ${tpl.badgeColor}`;
-        }
-        if (chars) chars.textContent = msg.length + " characters";
-
-        // Mobile
-        const mPreview = document.getElementById("m-tpl-preview");
-        const mTitle = document.getElementById("m-tpl-title");
-        const mTo = document.getElementById("m-tpl-to");
-        if (mPreview) mPreview.textContent = msg;
-        if (mTitle) mTitle.textContent = tpl.title;
-        if (mTo) mTo.textContent = lead ? lead.name : "— pick a lead";
-      }
-
-      function selectOutreachLead(id) {
-        selectedLeadId = id;
-        // Highlight selected in both lists
-        document.querySelectorAll(".outreach-lead-item").forEach((el) => {
-          el.classList.toggle("border-primary", el.dataset.lid === id);
-          el.classList.toggle("bg-primary/5", el.dataset.lid === id);
-          el.classList.toggle("border-slate-100", el.dataset.lid !== id);
-        });
-        updateTemplatePreview();
-      }
-
-      function renderOutreachLeadList() {
-        const query = (
-          document.getElementById("outreach-search")?.value ||
-          document.getElementById("m-outreach-search")?.value ||
-          ""
-        ).toLowerCase();
-        const filtered = leads.filter(
-          (l) =>
-            !query ||
-            l.name.toLowerCase().includes(query) ||
-            (l.category || "").toLowerCase().includes(query),
-        );
-        const items = filtered
-          .slice(0, 80)
-          .map((l) => {
-            const sel = l.id === selectedLeadId;
-            return `<div class="outreach-lead-item cursor-pointer rounded-lg border p-3 transition-all ${sel ? "border-primary bg-primary/5" : "border-slate-100 hover:border-primary/40 hover:bg-slate-50"}" data-lid="${esc(l.id)}" onclick="selectOutreachLead('${esc(l.id)}')">
-      <p class="text-xs font-bold text-slate-800 truncate">${esc(l.name)}</p>
-      <p class="text-[10px] text-slate-400 truncate">${esc(l.category)}</p>
-    </div>`;
-          })
-          .join("");
-
-        const dl = document.getElementById("outreach-lead-list");
-        const ml = document.getElementById("m-outreach-lead-list");
-        if (dl)
-          dl.innerHTML =
-            items ||
-            `<p class="text-xs text-slate-400 text-center py-4">No leads found</p>`;
-        if (ml)
-          ml.innerHTML =
-            items ||
-            `<p class="text-xs text-slate-400 text-center py-4">No leads found</p>`;
-      }
-
-      function filterOutreachLeads() {
-        renderOutreachLeadList();
-      }
-
-      function copyTemplate_DISABLED_REPLACED_ABOVE() {
-        const tpl = TEMPLATES[currentTemplate];
-        const lead = selectedLeadId
-          ? leads.find((l) => l.id === selectedLeadId)
-          : null;
-        if (!lead) {
-          showToast("Pick a lead first!", "error");
-          return;
-        }
-        const msg = tpl.build(lead.name);
-        navigator.clipboard
-          .writeText(msg)
-          .then(() => {
-            showToast(`📋 Copied for ${lead.name}!`, "success");
-          })
-          .catch(() => {
-            const ta = document.createElement("textarea");
-            ta.value = msg;
-            ta.style.cssText = "position:fixed;opacity:0";
-            document.body.appendChild(ta);
-            ta.select();
-            document.execCommand("copy");
-            document.body.removeChild(ta);
-            showToast(`📋 Copied for ${lead.name}!`, "success");
-          });
-      }
+      let currentTemplate = "job",
+        selectedLeadId = null;
 
       // ═══════════════════════════════════════════════════════
       //  SIDEBAR COLLAPSE
       // ═══════════════════════════════════════════════════════
       function toggleSidebar() {
-        const sb = document.getElementById("sidebar");
-        const icon = document.getElementById("sidebar-toggle-icon");
+        const sb = document.getElementById("sidebar"),
+          icon = document.getElementById("sidebar-toggle-icon");
         if (!sb) return;
         const collapsed = sb.classList.toggle("collapsed");
         if (icon)
@@ -3436,7 +4505,7 @@
       }
 
       // ═══════════════════════════════════════════════════════
-      //  QUICK COPY BUTTON (per lead row — copies matching template)
+      //  QUICK COPY BUTTON
       // ═══════════════════════════════════════════════════════
       function quickCopyBtn(lead) {
         const tplMap = {
@@ -3444,18 +4513,15 @@
           build: "build_no_demo",
           build_plus: "build_demo",
         };
-        const tplKey = tplMap[lead.status];
-        const hasTemplate = !!tplKey;
+        const tplKey = tplMap[lead.status],
+          hasTemplate = !!tplKey;
         const title = hasTemplate
           ? "Copy " + lead.status + " template for " + lead.name
           : "Set a status first to copy template";
-        if (hasTemplate) {
+        if (hasTemplate)
           return `<button onclick="quickCopyForLead('${esc(lead.id)}')" title="${title}" class="quick-copy-btn flex-shrink-0 w-7 h-7 rounded-md inline-flex items-center justify-center bg-primary text-white hover:bg-primary/80 transition-all active:scale-95 cursor-pointer"><span class="material-symbols-outlined" style="font-size:15px">content_copy</span></button>`;
-        } else {
-          return `<button disabled title="${title}" class="quick-copy-btn flex-shrink-0 w-7 h-7 rounded-md inline-flex items-center justify-center bg-slate-100 text-slate-300 cursor-default"><span class="material-symbols-outlined" style="font-size:15px">content_copy</span></button>`;
-        }
+        return `<button disabled title="${title}" class="quick-copy-btn flex-shrink-0 w-7 h-7 rounded-md inline-flex items-center justify-center bg-slate-100 text-slate-300 cursor-default"><span class="material-symbols-outlined" style="font-size:15px">content_copy</span></button>`;
       }
-
       function quickCopyForLead(id) {
         const lead = leads.find((l) => l.id === id);
         if (!lead) return;
@@ -3490,9 +4556,6 @@
             doAfterCopy();
           });
       }
-
-      // Also record when copied from Outreach tab
-      const _origCopyTemplate = copyTemplate;
       function copyTemplate() {
         const tpl = TEMPLATES[currentTemplate];
         const lead = selectedLeadId
@@ -3522,9 +4585,8 @@
           });
       }
 
-      // ── Outreach history ─────────────────────────────────
-      let outreachLog = []; // [{id, name, category, tplKey, ts}]
-
+      // ── Outreach history ──────────────────────────────────
+      let outreachLog = [];
       function recordOutreach(lead, tplKey) {
         const entry = {
           id: lead.id,
@@ -3533,7 +4595,6 @@
           tplKey,
           ts: Date.now(),
         };
-        // Deduplicate: remove any previous entry for same lead+tplKey today
         outreachLog = outreachLog.filter(
           (e) =>
             !(
@@ -3549,6 +4610,7 @@
             JSON.stringify(outreachLog.slice(0, 500)),
           );
         } catch (e) {}
+        incrementDailyCount(tplKey);
         if (document.getElementById("view-outreach")?.style.display !== "none")
           renderOutreachLog();
         if (
@@ -3557,7 +4619,6 @@
           renderOutreachLog();
         schedulePush();
       }
-
       function isSameDay(ts1, ts2) {
         const d1 = new Date(ts1),
           d2 = new Date(ts2);
@@ -3567,14 +4628,12 @@
           d1.getDate() === d2.getDate()
         );
       }
-
       function loadOutreachLog() {
         try {
           const raw = localStorage.getItem("lf_outreach_log");
           if (raw) outreachLog = JSON.parse(raw);
         } catch (e) {}
       }
-
       function renderOutreachLog() {
         const tplLabels = {
           job: "Job",
@@ -3587,10 +4646,8 @@
           build_demo: "bg-[#577590]/15 text-[#577590]",
         };
         const log = outreachLog.slice(0, 100);
-
         const fmtDate = (ts) => {
-          const d = new Date(ts),
-            now = new Date();
+          const d = new Date(ts);
           if (isSameDay(ts, Date.now()))
             return (
               "Today " +
@@ -3599,28 +4656,16 @@
           if (isSameDay(ts, Date.now() - 86400000)) return "Yesterday";
           return d.toLocaleDateString([], { month: "short", day: "numeric" });
         };
-
         const html =
           log.length === 0
             ? `<div class="text-center py-12 text-slate-400"><span class="material-symbols-outlined block text-4xl mb-2">mark_email_read</span><p class="text-sm font-semibold">No outreach sent yet</p><p class="text-xs mt-1">Copy a template from the lead directory to log it here</p></div>`
             : log
                 .map((e, i) => {
-                  const lead = leads.find((l) => l.id === e.id);
-                  const replied = lead?.replied;
-                  return `<div class="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors group">
-        <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-sm flex-shrink-0">${esc(e.name[0])}</div>
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-bold text-slate-900 truncate">${esc(e.name)}</p>
-          <p class="text-[11px] text-slate-400 truncate">${esc(e.category)}</p>
-        </div>
-        <span class="text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide flex-shrink-0 ${tplColors[e.tplKey] || "bg-slate-100 text-slate-500"}">${tplLabels[e.tplKey] || e.tplKey}</span>
-        ${replied ? `<span class="flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full flex-shrink-0"><span class="material-symbols-outlined fill-1" style="font-size:12px">mark_email_read</span>Replied</span>` : `<span class="text-[10px] text-slate-300 flex-shrink-0">—</span>`}
-        <span class="text-[10px] text-slate-400 font-medium flex-shrink-0 w-16 text-right">${fmtDate(e.ts)}</span>
-        <button onclick="deleteOutreachEntry(${i})" title="Delete this entry" class="flex-shrink-0 opacity-0 group-hover:opacity-100 w-6 h-6 rounded flex items-center justify-center text-slate-300 hover:text-red-400 hover:bg-red-50 transition-all"><span class="material-symbols-outlined" style="font-size:15px">close</span></button>
-      </div>`;
+                  const lead = leads.find((l) => l.id === e.id),
+                    replied = lead?.replied;
+                  return `<div class="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors group"><div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-sm flex-shrink-0">${esc(e.name[0])}</div><div class="flex-1 min-w-0"><p class="text-sm font-bold text-slate-900 truncate">${esc(e.name)}</p><p class="text-[11px] text-slate-400 truncate">${esc(e.category)}</p></div><span class="text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide flex-shrink-0 ${tplColors[e.tplKey] || "bg-slate-100 text-slate-500"}">${tplLabels[e.tplKey] || e.tplKey}</span>${replied ? `<span class="flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full flex-shrink-0"><span class="material-symbols-outlined fill-1" style="font-size:12px">mark_email_read</span>Replied</span>` : `<span class="text-[10px] text-slate-300 flex-shrink-0">—</span>`}<span class="text-[10px] text-slate-400 font-medium flex-shrink-0 w-16 text-right">${fmtDate(e.ts)}</span><button onclick="deleteOutreachEntry(${i})" title="Delete" class="flex-shrink-0 opacity-0 group-hover:opacity-100 w-6 h-6 rounded flex items-center justify-center text-slate-300 hover:text-red-400 hover:bg-red-50 transition-all"><span class="material-symbols-outlined" style="font-size:15px">close</span></button></div>`;
                 })
                 .join("");
-
         ["outreach-log", "m-outreach-log"].forEach((id) => {
           const el = document.getElementById(id);
           if (el) el.innerHTML = html;
@@ -3630,13 +4675,11 @@
           const el = document.getElementById(id);
           if (el) el.textContent = count + " sent";
         });
-        // Show/hide clear-all button
         ["outreach-clear-all", "m-outreach-clear-all"].forEach((id) => {
           const el = document.getElementById(id);
           if (el) el.style.display = count > 0 ? "inline-flex" : "none";
         });
       }
-
       function deleteOutreachEntry(idx) {
         outreachLog.splice(idx, 1);
         try {
@@ -3645,14 +4688,8 @@
         renderOutreachLog();
         schedulePush();
       }
-
       function clearAllOutreach() {
-        if (
-          !confirm(
-            "Delete all outreach history? This will remove it from all devices.",
-          )
-        )
-          return;
+        if (!confirm("Delete all outreach history?")) return;
         outreachLog = [];
         try {
           localStorage.removeItem("lf_outreach_log");
@@ -3674,14 +4711,49 @@
         document.getElementById("m-view-leads").style.display = "none";
         document.getElementById("m-view-outreach").style.display = "none";
         document.getElementById("m-view-settings").style.display = "none";
-
-        // 1. Load leads from KV (or seed from fallback)
         await loadLeads();
-        // 2. Pull statuses + outreach log and apply them
         await pullStatuses();
-        // 3. Render everything
+        loadOutreachLog();
+        // Load local history first (cloud merge happens inside pullStatuses)
+        try {
+          const raw = localStorage.getItem("lf_daily_history");
+          if (raw) {
+            const h = JSON.parse(raw);
+            for (const [date, entry] of Object.entries(h)) {
+              const prev = dailyHistory[date] || {
+                job: 0,
+                build_no_demo: 0,
+                build_demo: 0,
+              };
+              dailyHistory[date] = {
+                job: Math.max(prev.job || 0, entry.job || 0),
+                build_no_demo: Math.max(
+                  prev.build_no_demo || 0,
+                  entry.build_no_demo || 0,
+                ),
+                build_demo: Math.max(
+                  prev.build_demo || 0,
+                  entry.build_demo || 0,
+                ),
+              };
+            }
+          }
+        } catch (e) {}
+        try {
+          const raw = localStorage.getItem("lf_daily_v1");
+          if (raw) {
+            const s = JSON.parse(raw);
+            if (s.date === todayStr()) {
+              const d = dailyData;
+              dailyData = s;
+              if (d.goal && !s.goal) dailyData.goal = d.goal;
+            } else if (s.goal) {
+              dailyData.goal = s.goal;
+            }
+          }
+        } catch (e) {}
+        if (!dailyData.date) dailyData.date = todayStr();
         updateEverything();
-        // 5. Hide loading overlay
         document.getElementById("loading-overlay").classList.add("hidden");
         setSyncState("synced");
       })();
